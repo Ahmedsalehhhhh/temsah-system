@@ -1,0 +1,23 @@
+<section dir="rtl">
+  <div class="page-heading"><div><p class="eyebrow">GOLDEN STREAMERS · FOLLOW-UPS</p><h1>المتابعات</h1></div><button *ngIf="auth.can('management','write')" class="btn primary" (click)="showForm=!showForm">+ متابعة جديدة</button></div>
+  <div class="section-tabs"><button class="btn" [class.primary]="tab()==='Management'" (click)="select('Management')">Management</button><button class="btn" [class.primary]="tab()==='Recruiters'" (click)="select('Recruiters')">Recruiters</button><button class="btn" [class.primary]="tab()==='Problems'" (click)="select('Problems')">Problems</button></div>
+  <form *ngIf="showForm && auth.can('management','write')" class="card mb-5" (ngSubmit)="create()">
+    <h2 class="font-semibold mb-3">{{ tab()==='Problems' ? 'مشكلة جديدة' : 'متابعة جديدة — '+tab() }}</h2>
+    <label>{{ tab()==='Problems' ? 'المشكلة' : 'عنوان المتابعة' }}<input class="field" name="title" [(ngModel)]="form.title" maxlength="200" required /></label>
+    <ng-container *ngIf="tab()!=='Problems'"><label class="block mt-3">التفاصيل<textarea class="field" name="details" [(ngModel)]="form.details" maxlength="4000" rows="3"></textarea></label><div class="grid sm:grid-cols-2 gap-3 mt-3"><label>الخطوة القادمة<input class="field" name="nextStep" [(ngModel)]="form.nextStep" maxlength="1000" /></label><label>موعد المتابعة<input class="field" type="date" name="dueDate" [(ngModel)]="form.dueDate" /></label></div></ng-container>
+    <div class="flex gap-2 mt-4"><button class="btn primary" [disabled]="busy || !form.title.trim()">حفظ</button><button type="button" class="btn" (click)="showForm=false">إلغاء</button></div>
+  </form>
+  <p *ngIf="error" class="text-bad mb-3" role="alert">{{ error }}</p>
+  <div class="flex items-end gap-3 mb-4"><label class="max-w-xs flex-1">عرض<select class="field" [(ngModel)]="status" (ngModelChange)="load()"><option value="Pending">قيد المتابعة</option><option value="Completed">مكتملة</option></select></label><button class="btn" (click)="load()" [disabled]="loading">تحديث</button></div>
+  <p *ngIf="loading" class="text-ink-500">جاري التحميل…</p>
+  <div class="grid lg:grid-cols-2 gap-4">
+    <article *ngFor="let row of rows()" class="card"><div *ngIf="canEdit(row)"><button (click)="row.editing=!row.editing">تعديل</button><button *ngIf="auth.isAdmin()" (click)="remove(row)">حذف</button></div><form *ngIf="row.editing" (ngSubmit)="edit(row)"><input [(ngModel)]="row.title" name="title"/><textarea *ngIf="tab()!=='Problems'" [(ngModel)]="row.details" name="details"></textarea><button>حفظ</button></form>
+      <div class="flex justify-between gap-3"><div><h2 class="font-semibold text-lg">{{ row.title }}</h2><p class="text-xs text-ink-500 mt-1">{{ name(row.createdBy) }} · آخر تحديث {{ row.updatedAt | date:'dd/MM/yyyy h:mm a' }}</p></div><span class="badge" [class.pending]="row.status==='Pending'" [class.done]="row.status==='Completed'">{{ row.status==='Pending'?'قيد المتابعة':'مكتملة' }}</span></div>
+      <p *ngIf="row.details" class="mt-4 whitespace-pre-wrap">{{ row.details }}</p><p *ngIf="row.nextStep" class="mt-3"><strong>الخطوة القادمة:</strong> {{ row.nextStep }}</p><p *ngIf="row.dueDate" class="mt-2"><strong>موعد المتابعة:</strong> {{ row.dueDate | date:'dd-MM-yyyy' }}</p>
+      <div *ngIf="row.updates?.length" class="mt-4 border-t pt-3"><h3 class="text-sm font-semibold mb-2">التحديثات</h3><div *ngFor="let u of row.updates" class="text-sm mb-2"><span class="text-gold-400">{{ u.at | date:'dd/MM h:mm a' }}</span> · {{ name(u.by) }}<p class="whitespace-pre-wrap">{{ u.text }}</p></div></div>
+      <form *ngIf="row.status==='Pending' && canEdit(row)" class="mt-4 border-t pt-3" (ngSubmit)="addUpdate(row)"><label>تحديث جديد<textarea class="field" name="update-{{row._id}}" [(ngModel)]="row.draft" rows="2" maxlength="4000" placeholder="اكتب آخر تطور…"></textarea></label><div class="flex flex-wrap gap-2 mt-2"><button class="btn primary" [disabled]="busy || !row.draft?.trim()">إضافة تحديث</button><button type="button" class="btn" (click)="toggle(row)" [disabled]="busy">Complete — مكتملة</button></div></form>
+      <button *ngIf="row.status==='Completed' && canEdit(row)" class="btn mt-3" (click)="toggle(row)" [disabled]="busy">إعادة للمتابعة</button>
+    </article>
+  </div>
+  <p *ngIf="!loading && !rows().length" class="card text-center text-ink-500">لا توجد متابعات في الحالة المختارة.</p>
+</section>

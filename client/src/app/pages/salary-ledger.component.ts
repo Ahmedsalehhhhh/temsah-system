@@ -1,0 +1,39 @@
+import {Component,inject,effect} from '@angular/core'
+import {CommonModule} from '@angular/common'
+import {FormsModule} from '@angular/forms'
+import {HttpClient} from '@angular/common/http'
+import {firstValueFrom} from 'rxjs'
+import {PersonPickerComponent} from '../components/person-picker.component'
+import {AuthService} from '../core/auth.service'
+import {PayrollService} from '../core/payroll.service'
+import {RowReportsService} from '../core/row-reports.service'
+import {confirmAction} from '../core/confirm-dialog'
+import {environment} from '../../environments/environment'
+@Component({standalone:true,imports:[CommonModule,FormsModule,PersonPickerComponent],template:`
+<section class="salary-editor"><h1>مرتبات الموظفين والسحوبات</h1>
+<form *ngIf="auth.can('salaries','write')" (ngSubmit)="add()"><app-person-picker endpoint="/employees/general/identity-options" (personChange)="person=$event"></app-person-picker><label>الراتب الأساسي<input type="number" min="0" [(ngModel)]="baseSalary" name="baseSalary"/></label><button [disabled]="busy||!person.name||payroll.isPeriodLocked()">إضافة راتب</button></form>
+<p role="alert" *ngIf="error">{{error}}</p><p role="status" *ngIf="notice">{{notice}}</p><button (click)="load()" [disabled]="busy">تحديث</button>
+<div class="salary-summary"><div>إجمالي المستحق<strong>{{sum('total')|number:'1.2-2'}} EGP</strong></div><div>إجمالي المسحوب<strong>{{sum('withdrawn')|number:'1.2-2'}} EGP</strong></div><div>إجمالي المتبقي<strong>{{sum('remaining')|number:'1.2-2'}} EGP</strong></div></div>
+<div class="salary-table"><table><thead><tr><th>الموظف</th><th>الأقسام</th><th>المستحق</th><th>المسحوب</th><th>المتبقي</th><th>سحب جديد</th><th>التفاصيل</th><th>PDF</th></tr></thead><tbody>
+<tr *ngFor="let r of rows"><td><strong>{{r.name}}</strong><small class="block">{{r.email}}</small></td><td><div *ngFor="let c of r.components">{{dept(c.dept)}}</div></td><td>{{r.total|number:'1.2-2'}} EGP</td><td>{{r.withdrawn|number:'1.2-2'}} EGP</td><td [class.text-bad]="r.remaining<0"><strong>{{r.remaining|number:'1.2-2'}} EGP</strong></td>
+<td class="salary-withdraw-cell"><form class="withdraw-form" *ngIf="auth.can('salaries','write')" (ngSubmit)="withdraw(r)"><input type="number" min="0.01" step="0.01" [max]="r.remaining" [(ngModel)]="r.amount" name="amount" placeholder="مبلغ السحب" aria-label="مبلغ السحب" required/><input [(ngModel)]="r.note" name="note" maxlength="500" placeholder="ملاحظة اختيارية" aria-label="ملاحظة السحب"/><button [disabled]="busy||payroll.isPeriodLocked()||!(r.amount>0)||r.amount>r.remaining">تسجيل السحب</button></form></td>
+<td><button (click)="selected=r">تفاصيل المرتب والسحوبات</button></td><td class="pdf-cell"><button class="row-pdf" [disabled]="busy" (click)="pdf(r)">↓ PDF</button></td></tr>
+<tr *ngIf="!rows.length"><td colspan="8">لا توجد مرتبات في هذه الفترة</td></tr></tbody></table></div>
+<section *ngIf="selected as r" class="salary-details"><div class="flex justify-between"><h2>{{r.name}}</h2><button (click)="selected=null">إغلاق</button></div>
+<div class="salary-component" *ngFor="let c of r.components"><h3>{{dept(c.dept)}}</h3><div *ngIf="c.dept==='general';else calculated"><label>الأساسي<input type="number" min="0" [(ngModel)]="c.baseSalary" [disabled]="payroll.isPeriodLocked()||!auth.can('salaries','write')"/></label><label>بونص<input type="number" min="0" [(ngModel)]="c.bonus" [disabled]="payroll.isPeriodLocked()||!auth.can('salaries','write')"/></label><label>خصم<input type="number" min="0" [(ngModel)]="c.deduction" [disabled]="payroll.isPeriodLocked()||!auth.can('salaries','write')"/></label><button *ngIf="auth.can('salaries','write')" [disabled]="busy||payroll.isPeriodLocked()" (click)="save(c)">حفظ المرتب</button></div><ng-template #calculated><p>الأساسي / العمولة: {{(c.baseSalary??c.amount)|number:'1.2-2'}} · مكافأة Tiers: {{(c.recruiterBonus||0)|number:'1.2-2'}} · بونص: {{c.bonus|number:'1.2-2'}} · خصم: {{c.deduction|number:'1.2-2'}}</p></ng-template></div>
+<h3>سجل السحوبات</h3><div class="withdraw-history" *ngFor="let w of r.history"><span>{{w.createdAt|date:'dd/MM/yyyy HH:mm'}}</span><strong>{{w.amountMinor/100|number:'1.2-2'}} EGP</strong><span>{{w.note}}</span><span *ngIf="w.voidedAt">ملغي</span><button *ngIf="!w.voidedAt && auth.isAdmin()" [disabled]="busy||payroll.isPeriodLocked()" (click)="voidWithdrawal(w)">إلغاء السحب</button></div><p *ngIf="!r.history.length">لا توجد سحوبات</p></section></section>`,styles:[`
+:host{display:block}.salary-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:20px 0}.salary-summary>div,.salary-details{background:white;border:1px solid #e4e7ec;border-radius:16px;padding:20px}.salary-summary strong{display:block;color:#a4770d;margin-top:10px;font-size:20px}.salary-table{overflow:auto;background:white;border-radius:16px}.salary-table table{width:100%}.withdraw-form{display:grid!important;gap:8px!important;min-width:160px;padding:0!important;margin:0!important;border:0!important}.withdraw-form input{width:100%;min-width:0}.salary-details{margin-top:20px}.salary-component{padding:14px 0;border-bottom:1px solid #eee}.salary-component label{display:inline-grid;margin:8px;max-width:180px}.withdraw-history{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px 0;border-bottom:1px solid #eee}@media(max-width:700px){.salary-summary{grid-template-columns:1fr}.salary-summary>div{display:flex;justify-content:space-between;align-items:center}.salary-summary strong{margin:0;font-size:18px}}
+`]})
+export class SalaryEditorComponent{
+ http=inject(HttpClient);auth=inject(AuthService);payroll=inject(PayrollService);reports=inject(RowReportsService);person:any={};baseSalary=0;busy=false;error='';notice='';rows:any[]=[];selected:any=null;api=environment.apiUrl;
+ constructor(){effect(()=>{if(this.payroll.currentPeriodId())void this.load()})}
+ dept(k:string){return ({it:'IT',management:'الإدارة',recruiters:'الريكروترز',general:'مرتب موظف'} as any)[k]||k}
+ sum(key:string){return this.rows.reduce((s,r)=>s+r[key],0)}
+ async load(){const p=this.payroll.currentPeriodId();if(!p)return;try{const rows=await firstValueFrom(this.http.get<any[]>(this.api+'/salaries/'+p));if(this.payroll.currentPeriodId()!==p)return;this.rows=rows;this.selected=this.selected?rows.find(r=>r.id===this.selected.id):null;this.error=''}catch(e:any){this.error=e.error?.message||e.message}}
+ async action(fn:()=>Promise<any>,success:string){if(this.busy)return;this.busy=true;this.error='';this.notice='';try{await fn();await this.load();this.notice=success}catch(e:any){this.error=e.error?.message||e.message}finally{this.busy=false}}
+ async withdraw(r:any){if(!(r.amount>0)||r.amount>r.remaining)return;const payload={source:r.id,amount:Number(r.amount),note:r.note||''};const signature=JSON.stringify(payload);if(r.requestSignature!==signature){r.requestId=crypto.randomUUID();r.requestSignature=signature}await this.action(()=>firstValueFrom(this.http.post(this.api+'/salaries/'+this.payroll.currentPeriodId()+'/withdrawals',{...payload,requestId:r.requestId})),'تم تسجيل السحب')}
+ async voidWithdrawal(w:any){if(!await confirmAction('إلغاء هذا السحب وإرجاع قيمته للمتبقي؟'))return;await this.action(()=>firstValueFrom(this.http.post(this.api+'/salaries/'+this.payroll.currentPeriodId()+'/withdrawals/'+w._id+'/void',{})),'تم إلغاء السحب')}
+ async save(c:any){await this.action(()=>firstValueFrom(this.http.put(this.api+'/employees/general/rows/'+this.payroll.currentPeriodId()+'/'+c._id,{baseSalary:c.baseSalary,bonus:c.bonus,deduction:c.deduction})),'تم حفظ المرتب')}
+ async add(){await this.action(()=>firstValueFrom(this.http.post(this.api+'/employees/general',{...this.person,baseSalary:this.baseSalary,periodId:this.payroll.currentPeriodId()})),'تمت إضافة المرتب')}
+ async pdf(r:any){await this.action(()=>this.reports.pdf('salaries',this.payroll.currentPeriodId()!,r.id),'تم تجهيز PDF')}
+}

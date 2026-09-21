@@ -1,0 +1,60 @@
+<div><p role="alert" *ngIf="pdfError">{{pdfError}}</p>
+  <div class="mb-5">
+    <h1 class="font-display text-xl font-semibold text-ink-100">سجل الريكروتينج</h1>
+    
+  </div>
+
+  <div *ngIf="!payroll.isPeriodLocked() && auth.canWriteFinance()" class="bg-base-900 border border-base-700 rounded-lg p-4 mb-5">
+    <div class="grid grid-cols-6 gap-3 items-end">
+      <label class="flex flex-col gap-1.5 col-span-1">
+        <span class="text-xs text-ink-500">الريكروتر</span>
+        <select [(ngModel)]="form.recruiterId" class="bg-base-850 border border-base-700 rounded-md px-3 py-2 text-sm text-ink-100 focus-ring">
+          <option *ngFor="let r of payroll.recruiters()" [value]="r.id">{{ r.name }}</option>
+        </select>
+      </label>
+      <label class="flex flex-col gap-1.5 col-span-2">
+        <span class="text-xs text-ink-500">اسم المستخدم اللي اتسجل</span>
+        <input [(ngModel)]="form.user" placeholder="username" class="bg-base-850 border border-base-700 rounded-md px-3 py-2 text-sm text-ink-100 focus-ring" />
+      </label>
+      <label class="flex flex-col gap-1.5 col-span-1">
+        <span class="text-xs text-ink-500">Tier</span>
+        <select [(ngModel)]="form.tier" class="bg-base-850 border border-base-700 rounded-md px-3 py-2 text-sm text-ink-100 focus-ring">
+          <option *ngFor="let t of tierKeys" [value]="t">{{ tierLabels[t] }}</option>
+        </select>
+      </label>
+      <label class="flex flex-col gap-1.5 col-span-1">
+        <span class="text-xs text-ink-500">Score (اختياري)</span>
+        <input type="number" [(ngModel)]="form.score" class="bg-base-850 border border-base-700 rounded-md px-3 py-2 text-sm text-ink-100 focus-ring" />
+      </label>
+      <label>Days<input type="number" min="0" [(ngModel)]="form.days" /></label><label>Hours<input type="number" min="0" [(ngModel)]="form.hours" /></label><button (click)="addRecord()" class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium bg-gold-500 text-base-950 hover:bg-gold-400">+ إضافة سجل</button>
+    </div>
+  </div>
+
+  <div class="bg-base-900 border border-base-700 rounded-lg overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-base-700 text-ink-500 text-xs">
+          <th class="text-right font-medium px-4 py-3">الريكروتر</th>
+          <th class="text-right font-medium px-4 py-3">المستخدم</th>
+          <th class="text-right font-medium px-4 py-3">Tier</th>
+          <th class="text-right font-medium px-4 py-3">Score</th>
+          <th *ngIf="!payroll.isPeriodLocked() && auth.canWriteFinance()" class="px-4 py-3"></th>
+        <th>Days</th><th>Hours</th><th>PDF</th></tr>
+      </thead>
+      <tbody>
+        <tr *ngIf="records().length === 0">
+          <td colspan="5" class="px-4 py-10 text-center text-ink-700">لا يوجد سجلات في هذه الفترة بعد</td>
+        </tr>
+        <tr *ngFor="let r of records()" class="border-b border-base-800 last:border-0">
+          <td class="px-4 py-2.5 font-medium">{{ recruiterName(r.recruiterId) }}</td>
+          <td class="px-4 py-2.5 text-ink-300">{{ r.user }}</td>
+          <td class="px-4 py-2.5 text-ink-300">{{ tierLabels[r.tier] }}</td>
+          <td class="px-4 py-2.5 text-ink-500">{{ r.score || '—' }}</td>
+          <td *ngIf="!payroll.isPeriodLocked() && auth.canWriteFinance()" class="px-4 py-2.5">
+            <button (click)="removeRecord(r.id)" class="text-bad hover:bg-bad/10 rounded-md px-3 py-2 text-sm font-medium">حذف</button>
+          </td>
+        <td>{{r.days}}</td><td>{{r.hours}}</td><td class="pdf-cell"><button [disabled]="pdfBusy" (click)="downloadPdf(r.id)" class="row-pdf">PDF <span>↓</span></button></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>

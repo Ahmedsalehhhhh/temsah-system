@@ -1,0 +1,83 @@
+<app-company-access *ngIf="auth.isAdmin()&&company()" [company]="company()"></app-company-access>
+<section dir="rtl" aria-labelledby="expensesTitle" class="bg-base-900 border border-base-700 rounded-lg p-4 sm:p-6">
+  <h2 id="expensesTitle" class="text-xl font-semibold mb-1">المصروفات</h2>
+  
+  <div class="flex gap-2 overflow-x-auto pb-3 mb-4" role="group" aria-label="الشركات">
+    <div *ngFor="let c of companies()" class="flex items-center shrink-0 rounded-md border border-base-700"><button [disabled]="busy" [attr.aria-pressed]="companyId()===c._id" (click)="companyId.set(c._id); message.set('')" class="whitespace-nowrap rounded-md px-4 py-2 border" [class.border-gold-500]="companyId()===c._id" [class.text-gold-400]="companyId()===c._id" [class.border-base-700]="companyId()!==c._id">{{ c.name }}</button><button *ngIf="auth.canWriteFinance()" type="button" (click)="openCompany(c)" [disabled]="busy || !auth.canWriteFinance()" [attr.aria-label]="'تعديل شركة ' + c.name" title="تعديل اسم الشركة" class="px-2 py-2 text-gold-400">✎</button><button *ngIf="auth.canWriteFinance()" type="button" (click)="askDeleteCompany(c)" [disabled]="busy || !auth.canWriteFinance()" [attr.aria-label]="'حذف شركة ' + c.name" title="حذف الشركة ومصروفاتها" class="px-2 py-2 text-bad">×</button></div>
+    <button *ngIf="auth.canWriteFinance()" [disabled]="busy || !auth.canWriteFinance()" (click)="openCompany()" aria-label="إضافة شركة" class="shrink-0 rounded-md px-4 py-2 border border-gold-500 text-gold-400">+ شركة</button>
+  </div>
+  <p *ngIf="companiesLoading()" role="status">جاري تحميل الشركات…</p>
+  <p *ngIf="error()" role="alert" class="text-red-400 mb-3">{{ error() }} <button class="underline" (click)="companies().length ? loadExpenses() : loadCompanies()">إعادة المحاولة</button></p>
+  <p *ngIf="message()" role="status" class="text-good mb-3">{{ message() }}</p>
+  <div *ngIf="!companiesLoading() && !companies().length && !error()" class="p-8 text-center text-ink-500">لا توجد شركات بعد. أضف أول شركة لبدء تسجيل المصروفات.</div>
+  <div *ngIf="company() as current" role="tabpanel" [attr.aria-label]="current.name">
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
+      <div class="rounded-lg bg-base-850 border border-base-700 p-4 min-w-56">
+        <p class="text-xs text-ink-500">إجمالي مصروفات {{ current.name }}</p>
+        <p class="text-2xl font-semibold text-gold-400 mt-2">{{ loading() || error() ? '—' : money(total()) }}</p>
+        <p class="text-xs text-ink-500 mt-1">{{ payroll.currentPeriod()?.label || 'اختار فترة رواتب' }}</p>
+      </div>
+      <button *ngIf="auth.canWriteFinance()" (click)="openExpense()" [disabled]="!payroll.currentPeriodId() || payroll.isPeriodLocked() || loading()" class="rounded-md px-4 py-2 bg-gold-500 text-base-950 font-medium">+ إضافة مصروف جديد</button>
+    </div>
+    <p *ngIf="payroll.isPeriodLocked()" class="text-sm text-ink-500 mb-3">الفترة مقفولة — المصروفات والإيصالات للعرض فقط.</p>
+    <p *ngIf="loading()" role="status" class="p-5">جاري تحميل المصروفات…</p>
+    <div class="overflow-x-auto" *ngIf="!loading()">
+      <table class="w-full text-sm min-w-[650px]">
+        <thead class="text-ink-500 border-b border-base-700"><tr><th class="text-right p-3">التاريخ</th><th class="text-right p-3">البيان</th><th class="text-right p-3">المبلغ</th><th class="text-right p-3">الإيصال</th><th *ngIf="auth.canWriteFinance()" class="text-right p-3">الإجراءات</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let row of rows()" class="border-b border-base-800">
+            <td class="p-3 whitespace-nowrap">{{ row.date }}</td><td class="p-3 max-w-sm break-words">{{ row.description }}</td>
+            <td class="p-3 text-good font-semibold whitespace-nowrap">{{ money(row.amount) }}</td>
+            <td class="p-3"><button *ngIf="row.receipt; else noReceipt" (click)="previewReceipt(row)" [attr.aria-label]="'عرض إيصال ' + row.description" class="text-gold-400 underline">
+              <img *ngIf="receipts()[row.id]; else fileLabel" [src]="receipts()[row.id]" alt="صورة الإيصال" class="w-16 h-14 rounded object-cover border border-base-700" />
+              <ng-template #fileLabel>{{ row.receipt.mime === 'application/pdf' ? 'عرض PDF' : 'عرض الصورة' }}</ng-template>
+            </button><ng-template #noReceipt><span class="text-ink-500">بدون إيصال</span></ng-template></td>
+            <td *ngIf="auth.canWriteFinance()" class="p-3 whitespace-nowrap"><button *ngIf="auth.canWriteFinance()" (click)="openExpense(row)" [disabled]="payroll.isPeriodLocked()" class="text-gold-400 px-2 py-2">تعديل</button><button *ngIf="auth.canWriteFinance()" (click)="askDelete(row)" [disabled]="payroll.isPeriodLocked()" class="text-red-400 px-2 py-2">حذف</button></td>
+          </tr>
+          <tr *ngIf="!rows().length && !error()"><td [attr.colspan]="auth.canWriteFinance() ? 5 : 4" class="p-8 text-center text-ink-500">لا توجد مصروفات لهذه الشركة في الفترة المختارة.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<dialog dir="rtl" #companyDialog aria-labelledby="companyTitle" (cancel)="busy ? $event.preventDefault() : null">
+  <h2 id="companyTitle" class="text-lg font-semibold mb-5">{{ editingCompany ? 'تعديل اسم الشركة' : 'إضافة شركة جديدة' }}</h2>
+  <form (ngSubmit)="saveCompany()">
+    <label>اسم الشركة<input class="field" name="companyName" [(ngModel)]="companyName" required maxlength="120" autofocus [disabled]="busy || !auth.canWriteFinance()" /></label>
+    <p *ngIf="companyError" role="alert" class="text-red-400 mb-3">{{ companyError }}</p>
+    <div class="flex gap-3"><button *ngIf="auth.canWriteFinance()" type="submit" [disabled]="busy || !companyName.trim()" class="bg-gold-500 text-base-950 rounded px-4 py-2">{{ busy ? 'جاري الحفظ…' : 'حفظ الشركة' }}</button><button type="button" [disabled]="busy" (click)="companyDialog.close()" class="rounded border border-base-700 px-4 py-2">إلغاء</button></div>
+  </form>
+</dialog>
+<dialog dir="rtl" #expenseDialog aria-labelledby="expenseTitle" (cancel)="busy || fileBusy ? $event.preventDefault() : null">
+  <h2 id="expenseTitle" class="text-lg font-semibold mb-5">{{ editing ? 'تعديل المصروف' : 'إضافة مصروف جديد' }}</h2>
+  <form (ngSubmit)="saveExpense()">
+    <fieldset [disabled]="busy || !auth.canWriteFinance()">
+      <label>المبلغ بالجنيه المصري<input class="field" type="number" name="amount" [(ngModel)]="form.amount" min="0.01" max="1000000000" step="0.01" required autofocus /></label>
+      <label>البيان / الوصف<textarea class="field" name="description" [(ngModel)]="form.description" required maxlength="1000" rows="3"></textarea></label>
+      <label>التاريخ<input class="field" type="date" name="date" [(ngModel)]="form.date" required /></label>
+      <label>إيصال / إثبات دفع (اختياري، حتى 3 MB)<input class="field" type="file" accept=".jpg,.jpeg,.png,.pdf" (change)="chooseReceipt($event)" [disabled]="fileBusy" /></label>
+      <div *ngIf="fileName" class="mb-4"><p class="text-sm break-all">{{ fileName }}</p><img *ngIf="filePreview && fileMime.startsWith('image/')" [src]="filePreview" alt="معاينة الإيصال المختار" class="max-h-32 rounded mt-2" /><iframe *ngIf="filePdf" [src]="filePdf" title="معاينة ملف PDF المختار" class="w-full h-48 rounded mt-2 border border-base-700"></iframe><button type="button" (click)="removeReceipt()" [disabled]="fileBusy" class="text-red-400 text-sm mt-2">إزالة الإيصال</button></div>
+      <p *ngIf="formError" role="alert" class="text-red-400 mb-3">{{ formError }}</p>
+      <div class="flex gap-3"><button type="submit" [disabled]="busy || fileBusy" class="bg-gold-500 text-base-950 rounded px-4 py-2">{{ busy ? 'جاري الحفظ…' : 'حفظ المصروف' }}</button><button type="button" [disabled]="busy || fileBusy" (click)="expenseDialog.close()" class="rounded border border-base-700 px-4 py-2">إلغاء</button></div>
+    </fieldset>
+  </form>
+</dialog>
+<dialog dir="rtl" #receiptDialog aria-label="معاينة الإيصال" (close)="closePreview()">
+  <button (click)="closePreview()" class="border border-base-700 rounded px-4 py-2 mb-4">إغلاق المعاينة</button>
+  <img *ngIf="previewUrl && previewMime.startsWith('image/')" [src]="previewUrl" alt="الإيصال بالحجم الكامل" class="max-w-full mx-auto" />
+  <iframe *ngIf="previewPdf && previewMime==='application/pdf'" [src]="previewPdf" title="إيصال PDF" style="width:100%;height:65vh;border:0"></iframe>
+</dialog>
+<dialog dir="rtl" #deleteDialog aria-labelledby="expenseDeleteTitle" (cancel)="busy ? $event.preventDefault() : null">
+  <h2 id="expenseDeleteTitle" class="text-lg font-semibold mb-4">حذف المصروف</h2>
+  <p class="mb-4">هل تريد حذف «{{ deleting?.description }}» وإيصاله؟ لا يمكن التراجع عن الحذف.</p>
+  <p *ngIf="formError" role="alert" class="text-red-400 mb-3">{{ formError }}</p>
+  <div class="flex gap-3"><button (click)="deleteExpense()" [disabled]="busy || !auth.canWriteFinance()" class="bg-red-700 text-white rounded px-4 py-2">تأكيد الحذف</button><button (click)="deleteDialog.close()" [disabled]="busy || !auth.canWriteFinance()" class="border border-base-700 rounded px-4 py-2" autofocus>إلغاء</button></div>
+</dialog>
+
+<dialog #deleteCompanyDialog dir="rtl" aria-labelledby="companyDeleteTitle" (cancel)="busy ? $event.preventDefault() : null">
+ <h2 id="companyDeleteTitle" class="text-lg font-semibold mb-4">حذف الشركة</h2>
+ <p class="mb-4">هل تريد حذف شركة «{{ deletingCompany?.name }}» وجميع مصروفاتها وإيصالاتها في كل الفترات؟ لا يمكن التراجع عن الحذف.</p>
+ <p *ngIf="companyError" role="alert" class="text-bad mb-3">{{ companyError }}</p>
+ <div class="flex gap-3"><button class="bg-red-700 text-white rounded px-4 py-2" (click)="deleteCompany()" [disabled]="busy || !auth.canWriteFinance()">{{ busy ? 'جاري الحذف…' : 'تأكيد الحذف' }}</button><button class="btn" (click)="deleteCompanyDialog.close()" [disabled]="busy || !auth.canWriteFinance()" autofocus>إلغاء</button></div>
+</dialog>

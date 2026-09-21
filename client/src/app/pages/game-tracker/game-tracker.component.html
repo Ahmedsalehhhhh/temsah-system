@@ -1,0 +1,55 @@
+<section dir="rtl">
+  <div class="flex flex-wrap justify-between items-center gap-3 mb-5">
+    <div><h1 class="text-xl font-semibold">Game Tracker</h1></div>
+    <button *ngIf="auth.canCreateGameTracker()" type="button" (click)="openRecord()" class="rounded-md px-4 py-2 bg-gold-500 text-base-950">Add Record</button>
+  </div>
+  <form (ngSubmit)="applyFilters()" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 bg-base-900 border border-base-700 rounded-lg p-4 mb-4">
+    <label class="text-sm">Search<input class="field" name="search" [(ngModel)]="filters.search" maxlength="200" placeholder="User / Email / Product" /></label>
+    <label class="text-sm">Date<input class="field" type="date" name="filterDate" [(ngModel)]="filters.date" /></label>
+    <label class="text-sm">State<select class="field" name="filterState" [(ngModel)]="filters.state"><option value="">الكل</option><option *ngFor="let state of states" [value]="state">{{ state }}</option></select></label>
+    <label class="text-sm">Our Payment Method<select class="field" name="filterPayment" [(ngModel)]="filters.paymentMethod"><option value="">الكل</option><option *ngFor="let method of paymentMethods" [value]="method">{{ method }}</option></select></label>
+    <div class="flex items-end gap-2"><button type="submit" [disabled]="loading()" class="rounded border border-gold-500 text-gold-400 px-4 py-2">بحث</button><button type="button" (click)="resetFilters()" [disabled]="loading()" class="rounded border border-base-700 px-3 py-2">مسح الفلاتر</button></div>
+  </form>
+  <p *ngIf="error()" role="alert" class="text-red-400 mb-3">{{ error() }} <button (click)="load()" class="underline">إعادة المحاولة</button></p>
+  <p *ngIf="notice()" role="status" class="text-good mb-3">{{ notice() }}</p>
+  <p *ngIf="loading()" role="status" class="py-4">جاري تحميل السجلات…</p>
+  <div class="overflow-x-auto bg-base-900 border border-base-700 rounded-lg" [attr.aria-busy]="loading()">
+    <table class="w-full text-sm min-w-[1800px]" dir="ltr">
+      <thead><tr><th>Date</th><th>User</th><th>Email</th><th>Product</th><th>Cost</th><th>Website</th><th>Our Payment Method</th><th>Payment Proof</th><th>State</th><th>Sold For</th><th>Customer Payment Method</th><th>Customer Payment Proof</th><th>Transferred to Company</th><th>Transfer Proof</th><th *ngIf="auth.canWriteFinance()">Actions</th></tr></thead>
+      <tbody><tr *ngFor="let row of rows()">
+      <td class="whitespace-nowrap">{{ row.date }}</td><td>{{ row.user }}</td><td>{{ row.email }}</td><td>{{ row.product }}</td><td class="whitespace-nowrap">{{ money(row.cost) }}</td><td>{{ row.website }}</td><td>{{ row.paymentMethod }}</td><td><ng-container *ngTemplateOutlet="photoCell; context: { row: row, kind: 'purchaseProof' }"></ng-container></td><td><span class="badge" [class.done]="row.state==='Completed'" [class.pending]="row.state==='Pending'">{{ row.state }}</span></td><td class="whitespace-nowrap text-good">{{ money(row.price) }}</td><td>{{ row.customerPaymentMethod || '—' }}</td><td><ng-container *ngTemplateOutlet="photoCell; context: { row: row, kind: 'photoForPayment' }"></ng-container></td><td><span class="badge" [class.done]="row.transferredToCompany" [class.pending]="!row.transferredToCompany">{{ row.transferredToCompany ? 'Transferred' : 'Not confirmed' }}</span></td><td><ng-container *ngTemplateOutlet="photoCell; context: { row: row, kind: 'photoFromUs' }"></ng-container></td>
+          <td *ngIf="auth.canWriteFinance()" class="whitespace-nowrap"><button type="button" (click)="editRecord(row)" [disabled]="deletingId !== null" class="text-gold-400 underline mr-3">Edit</button><button type="button" (click)="deleteRecord(row)" [disabled]="deletingId !== null" class="text-red-400 underline">Delete</button></td>
+        </tr>
+        <tr *ngIf="!loading() && !error() && !rows().length"><td [attr.colspan]="auth.canWriteFinance() ? 15 : 14" class="text-center py-8 text-ink-500">لا توجد سجلات مطابقة.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="flex flex-wrap items-center justify-between gap-3 mt-4">
+    <span class="text-sm text-ink-500" role="status">{{ total() }} سجل — صفحة {{ page }} من {{ pages }}</span>
+    <div class="flex gap-2"><button (click)="changePage(-1)" [disabled]="loading() || page<=1" class="rounded border border-base-700 px-4 py-2">السابق</button><button (click)="changePage(1)" [disabled]="loading() || page>=pages" class="rounded border border-base-700 px-4 py-2">التالي</button></div>
+  </div>
+</section>
+<dialog #recordDialog dir="rtl" aria-labelledby="recordTitle" (cancel)="saving || reading ? $event.preventDefault() : null">
+  <h2 id="recordTitle" class="text-lg mb-2">{{ editingId ? 'Edit Record' : 'Add Record' }}</h2><p class="text-sm text-gold-400 mb-5">{{ auth.canWriteFinance() ? 'يمكنك تعديل السجل أو حذفه. الصور الحالية تبقى ما لم تختَر صورًا بديلة.' : 'راجع البيانات قبل الحفظ. لا يمكنك تعديل أو حذف السجل بعد الحفظ.' }}</p>
+  <form #recordForm="ngForm" (ngSubmit)="recordForm.valid && save()">
+    <fieldset [disabled]="saving || !auth.canWriteFinance()" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <label>Date<input class="field" type="date" name="date" [(ngModel)]="form.date" required /></label>
+      <label>User<input class="field" name="user" [(ngModel)]="form.user" required maxlength="120" /></label>
+      <label>Email<input class="field" type="email" email name="email" [(ngModel)]="form.email" required maxlength="254" /></label>
+      <label>Product<input class="field" name="product" [(ngModel)]="form.product" required maxlength="200" /></label>
+      <label>Cost<input class="field" type="number" name="cost" [(ngModel)]="form.cost" required min="0" max="1000000000" step="0.01" /></label>
+      <label>Sold For<input class="field" type="number" name="price" [(ngModel)]="form.price" required min="0" max="1000000000" step="0.01" /></label>
+      <label>State<select class="field" name="state" [(ngModel)]="form.state" required><option *ngFor="let state of states" [value]="state">{{ state }}</option></select></label>
+      <label>Website<input class="field" name="website" [(ngModel)]="form.website" required maxlength="500" /></label>
+      <label>Our Payment Method<select class="field" name="paymentMethod" [(ngModel)]="form.paymentMethod" required><option *ngFor="let method of paymentMethods" [value]="method">{{ method }}</option></select></label>
+      <label>Customer Payment Method<select class="field" name="customerPaymentMethod" [(ngModel)]="form.customerPaymentMethod"><option [ngValue]="null">Not specified</option><option *ngFor="let method of paymentMethods" [value]="method">{{ method }}</option></select></label>
+      <label class="flex gap-2 items-center"><input type="checkbox" name="transferredToCompany" [(ngModel)]="form.transferredToCompany" />Transferred to Company</label>
+      <div class="text-xs text-ink-500 self-center">الصور اختيارية: PNG أو JPG، حتى 3 MB لكل صورة.</div>
+      <label *ngFor="let kind of photoKinds">{{ photoLabels[kind] }}<input class="field" type="file" [attr.name]="kind" accept=".png,.jpg,.jpeg" (change)="choosePhoto($event,kind)" [disabled]="reading>0" /><img *ngIf="previews[kind]" [src]="previews[kind]" [alt]="kind+' preview'" class="max-h-32 rounded mt-2" /></label>
+    </fieldset>
+    <p *ngIf="formError" role="alert" class="text-red-400 mt-3">{{ formError }}</p>
+    <div class="flex gap-3 mt-5"><button *ngIf="auth.canWriteFinance()" type="submit" [disabled]="saving || reading>0 || !recordForm.valid" class="rounded bg-gold-500 text-base-950 px-4 py-2">{{ saving ? 'جاري الحفظ…' : 'Save' }}</button><button type="button" (click)="recordDialog.close()" [disabled]="saving || reading>0" class="rounded border border-base-700 px-4 py-2">إلغاء</button></div>
+  </form>
+</dialog>
+<dialog #photoDialog dir="rtl" aria-label="عرض الصورة" (close)="closePhoto()"><button (click)="closePhoto()" class="rounded border border-base-700 px-4 py-2 mb-3">إغلاق الصورة</button><img *ngIf="previewUrl" [src]="previewUrl" alt="الصورة بالحجم الكامل" class="max-w-full mx-auto" /></dialog>
+<ng-template #photoCell let-row="row" let-kind="kind"><button *ngIf="row[kind]; else missingPhoto" (click)="showPhoto(row,kind)" class="text-gold-400 underline"><img *ngIf="thumbnails()[row.id+kind]; else photoLink" [src]="thumbnails()[row.id+kind]" alt="Payment proof" class="w-16 h-14 object-cover rounded"/><ng-template #photoLink>عرض الصورة</ng-template></button><ng-template #missingPhoto>—</ng-template></ng-template>

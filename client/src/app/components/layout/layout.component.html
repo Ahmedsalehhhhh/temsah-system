@@ -1,0 +1,62 @@
+<div class="app-shell" *ngIf="!payroll.loading(); else loadingTpl" dir="rtl">
+  <header class="app-topbar">
+    <div class="brand-side">
+      <button type="button" class="menu-button" (click)="menuOpen.set(true)" aria-label="فتح القائمة">☰</button>
+      <div class="brand-mark" aria-label="Temsah Group">
+        <img src="/temsah-logo.png" alt="Temsah Group" class="brand-image"/>
+      </div>
+    </div>
+    <div class="account-side">
+      <button class="account-logout" type="button" (click)="auth.logout()" title="تسجيل خروج" aria-label="تسجيل خروج"><span class="account-label">تسجيل خروج</span><span class="account-avatar">{{ (auth.user()?.name || 'M').charAt(0) }}</span></button>
+      <div class="notification-wrap">
+        <button type="button" (click)="openNotifications()" class="notification-button" aria-label="الإشعارات"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span *ngIf="notifications().length" class="notification-count">{{ notifications().length }}</span></button>
+        <div *ngIf="notificationsOpen()" class="notification-panel">
+          <h2>الإشعارات</h2>
+          <button *ngFor="let n of notifications()" type="button" (click)="goToTasks()" class="notification-row"><strong>مهمة جديدة</strong><span>{{ n.text || 'مهمة مرفقة بصورة' }}</span><small>من {{ n.userId?.fullName || n.userId?.name || 'الإدارة' }}</small></button>
+          <p *ngIf="!notifications().length">لا توجد إشعارات جديدة.</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div *ngIf="menuOpen()" class="drawer-backdrop" (click)="closeMenu()"></div>
+  <aside class="side-drawer" [class.open]="menuOpen()">
+    <div class="drawer-heading"><button type="button" class="drawer-close" (click)="closeMenu()">×</button><div><small>TEMSAH GROUP</small><h2>القائمة</h2></div></div>
+    <nav aria-label="القائمة الرئيسية" (click)="closeMenu()"><ng-container *ngTemplateOutlet="navigation; context: { panelId: 'drawerPayrollNav' }"></ng-container></nav>
+    <div class="drawer-user"><span>{{ auth.user()?.name }}</span><small>{{ auth.role() }}</small></div>
+  </aside>
+
+  <main class="app-content" appResponsiveTables>
+<section class="welcome-block"><div><small>مساحة عملك</small><h1>Hello, {{auth.user()?.name}} 👋</h1></div><span>نظرة عامة</span></section>
+    <section *ngIf="auth.canReadFinance()" class="period-bar">
+      <label>فترة الرواتب<select [ngModel]="payroll.currentPeriodId()" (ngModelChange)="onPeriodChange($event)"><option *ngFor="let p of payroll.periods()" [value]="p.id">{{ p.label }} {{ p.status === 'closed' ? '· مقفولة' : '' }}</option></select></label>
+      <ng-container *ngIf="auth.can('payroll','write')">
+        <button *ngIf="payroll.currentPeriod()?.status === 'open'" (click)="payroll.closePeriod(payroll.currentPeriod()!.id)" class="btn">قفل الفترة</button>
+        <button *ngIf="payroll.isPeriodLocked()" (click)="reopenPeriod()" class="btn primary">إعادة فتح الفترة</button>
+        <button *ngIf="!adding()" (click)="adding.set(true)" class="btn">+ فترة جديدة</button>
+        <ng-container *ngIf="adding()"><input [(ngModel)]="newLabel" placeholder="اسم الفترة"/><button (click)="createPeriod()" class="btn primary">إنشاء</button><button (click)="adding.set(false)" class="btn">إلغاء</button></ng-container>
+      </ng-container>
+    </section>
+    <div *ngIf="payroll.error() && auth.canReadFinance()" class="page-error">{{ payroll.error() }}</div>
+    <app-report-tools></app-report-tools>
+    <router-outlet></router-outlet>
+  </main>
+</div>
+
+<ng-template #loadingTpl><div class="loading-screen"><div class="loading-brand"><div class="brand-mark"><img src="/temsah-logo.png" alt="Temsah Group" class="brand-image"/></div><p>جاري تجهيز مساحة عملك…</p></div></div></ng-template>
+
+<ng-template #navigation let-panelId="panelId">
+  <ng-container *ngIf="auth.canReadFinance()">
+    <a *ngIf="auth.can('overview')" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"><span>▦</span> نظرة عامة</a>
+    <button type="button" class="nav-parent" (click)="$event.stopPropagation();payrollExpanded.set(!payrollExpanded())"><span>▥</span><b>الرواتب</b><em>{{ payrollExpanded() ? '▼' : '◀' }}</em></button>
+    <div [id]="panelId" [hidden]="!payrollExpanded()" class="nav-children"><a *ngFor="let item of visiblePayrollNav()" [routerLink]="item.to" routerLinkActive="active"><span>{{ item.icon }}</span>{{ item.label }}</a></div>
+    <a *ngIf="auth.can('expenses')" routerLink="/expenses" routerLinkActive="active"><span>▤</span> المصروفات</a><a *ngIf="auth.can('archive')" routerLink="/archive" routerLinkActive="active"><span>▤</span> الأرشيف</a>
+  </ng-container>
+  <a *ngIf="auth.canAccessGameTracker()" routerLink="/game-tracker" routerLinkActive="active"><span>▦</span> Game Tracker</a>
+  <a *ngIf="auth.can('attendance-and-work') || auth.can('tasks')" routerLink="/attendance-and-work" routerLinkActive="active"><span>◷</span> الحضور والعمل</a>
+  <a *ngIf="auth.can('tasks')" routerLink="/tasks" routerLinkActive="active"><span>✓</span> التاسكات</a>
+  <a *ngIf="auth.can('management')" routerLink="/follow-ups" routerLinkActive="active"><span>↻</span> المتابعات</a>
+  <a *ngIf="auth.can('attendance-own')" routerLink="/attendance" routerLinkActive="active"><span>◷</span> حضوري</a>
+  <a *ngIf="auth.isAdmin()" routerLink="/permissions" routerLinkActive="active"><span>◇</span> إدارة الصلاحيات</a>
+  <a *ngIf="auth.can('employee-accounts')" routerLink="/employee-accounts" routerLinkActive="active"><span>♙</span> الموظفون</a>
+</ng-template>

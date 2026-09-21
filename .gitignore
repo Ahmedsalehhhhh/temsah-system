@@ -1,0 +1,35 @@
+# Dependencies and generated builds
+node_modules/
+client/dist/
+client/.angular/
+coverage/
+
+# Local configuration and secrets
+.env
+.env.*
+server/.env
+server/.env.*
+!.env.example
+!server/.env.example
+
+# Logs and temporary QA output
+*.log
+qa-output/
+audit-server.json
+build-results.txt
+salary-build.txt
+salary-tests.txt
+style-build.txt
+style-tests.txt
+test-results.txt
+
+# One-off migration and packaging helpers
+/*.mjs
+/qa-entry.ts
+
+# Deployment archives and OS/editor files
+*.zip
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

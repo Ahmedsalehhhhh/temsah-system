@@ -1,0 +1,79 @@
+<div>
+  <div class="flex items-start justify-between mb-5 gap-4">
+    <div>
+      <h1 class="font-display text-xl font-semibold text-ink-100">لوحة التحكم</h1>
+      <p class="text-sm text-ink-500 mt-1">فترة الرواتب: {{ payroll.currentPeriod()?.label || '—' }}</p>
+    </div>
+    <span *ngIf="payroll.currentPeriod()?.status === 'closed'" class="text-xs px-2 py-0.5 rounded-full bg-bad/10 text-bad">فترة مقفولة</span>
+    <span *ngIf="payroll.currentPeriod()?.status === 'open'" class="text-xs px-2 py-0.5 rounded-full bg-good/10 text-good">فترة مفتوحة</span>
+  </div>
+
+  <section class="bg-base-900 border border-base-700 rounded-lg p-4 sm:p-5">
+    <button type="button" (click)="payrollExpanded.set(!payrollExpanded())" [attr.aria-expanded]="payrollExpanded()" aria-controls="payrollDetails" class="w-full flex flex-wrap items-center justify-between gap-3 text-right">
+      <span class="text-lg font-semibold"><span aria-hidden="true">{{ payrollExpanded() ? '▼' : '◀' }}</span> نظرة عامة على الرواتب</span>
+      <span class="text-gold-400 font-semibold">{{ formatEGP(companyTotal()) }}</span>
+    </button>
+    <div id="payrollDetails" class="payroll-panel" [class.expanded]="payrollExpanded()" [attr.inert]="payrollExpanded() ? null : ''" [attr.aria-hidden]="!payrollExpanded()">
+      <div class="payroll-inner"><div class="pt-5">
+  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+    <div class="bg-base-900 border border-base-700 rounded-lg p-5">
+      <div class="text-xs text-ink-500 mb-2">إجمالي الرواتب</div>
+      <div class="font-display text-2xl font-semibold text-gold-400">{{ formatEGP(companyTotal()) }}</div>
+    </div>
+    <div class="bg-base-900 border border-base-700 rounded-lg p-5">
+      <div class="text-xs text-ink-500 mb-2">عدد الموظفين</div>
+      <div class="font-display text-2xl font-semibold text-ink-100">{{ employeeCount() }}</div>
+    </div>
+    <div class="bg-base-900 border border-base-700 rounded-lg p-5">
+      <div class="text-xs text-ink-500 mb-2">إجمالي البونص</div>
+      <div class="font-display text-2xl font-semibold text-good">{{ formatEGP(totalBonus()) }}</div>
+    </div>
+    <div class="bg-base-900 border border-base-700 rounded-lg p-5">
+      <div class="text-xs text-ink-500 mb-2">إجمالي الخصومات</div>
+      <div class="font-display text-2xl font-semibold text-bad">{{ formatEGP(totalDeduction()) }}</div>
+    </div>
+  </div>
+
+  <div class="bg-base-900 border border-base-700 rounded-lg overflow-x-auto">
+    <table class="w-full text-sm min-w-[650px]">
+      <thead>
+        <tr class="border-b border-base-700 text-ink-500 text-xs">
+          <th class="text-right font-medium px-5 py-3">القسم</th>
+          <th class="text-right font-medium px-5 py-3">عدد الموظفين</th>
+          <th class="text-right font-medium px-5 py-3">الأساسي</th>
+          <th class="text-right font-medium px-5 py-3">البونص</th>
+          <th class="text-right font-medium px-5 py-3">الخصومات</th>
+          <th class="text-right font-medium px-5 py-3">الإجمالي</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of rows()" class="border-b border-base-800 last:border-0">
+          <td class="px-5 py-3 font-medium">{{ r.name }}</td>
+          <td class="px-5 py-3 text-ink-500">{{ r.count }}</td>
+          <td class="px-5 py-3">{{ formatEGP(r.base) }}</td>
+          <td class="px-5 py-3 text-good">{{ formatEGP(r.bonus) }}</td>
+          <td class="px-5 py-3 text-bad">{{ r.deduction ? '- ' + formatEGP(r.deduction) : formatEGP(0) }}</td>
+          <td class="px-5 py-3 font-semibold text-gold-400">{{ formatEGP(r.total) }}</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr class="bg-base-850">
+          <td class="px-5 py-3 font-semibold">الإجمالي الكلي</td>
+          <td class="px-5 py-3 text-ink-500">{{ employeeCount() }}</td>
+          <td class="px-5 py-3">{{ formatEGP(totalBase()) }}</td>
+          <td class="px-5 py-3 text-good">{{ formatEGP(totalBonus()) }}</td>
+          <td class="px-5 py-3 text-bad">{{ totalDeduction() ? '- ' + formatEGP(totalDeduction()) : formatEGP(0) }}</td>
+          <td class="px-5 py-3 font-semibold text-gold-400">{{ formatEGP(companyTotal()) }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-6">
+    <div *ngFor="let activity of recentActivity()" class="bg-base-900 border border-base-700 rounded-lg p-4">
+      <div class="text-xs text-ink-500">{{ activity.label }}</div>
+      <div class="font-display text-xl font-semibold text-ink-100 mt-2">{{ activity.count }}</div>
+      <div class="text-xs text-ink-700 mt-1">نشاط الفترة الحالية</div>
+    </div>
+  </div>
+</div></div></div></section>
+</div>

@@ -1,0 +1,37 @@
+<div class="login-screen min-h-screen flex items-center justify-center bg-base-950 px-4" dir="rtl">
+  <div class="login-card w-full bg-base-900 border border-base-700 rounded-lg p-6">
+    <div class="mb-6 text-center">
+      <div class="login-logo"><img src="/temsah-logo.png" alt="Temsah Group" class="brand-image"/></div><h1>أهلاً بعودتك</h1>
+    </div>
+
+    <form (ngSubmit)="submit()" class="flex flex-col gap-4">
+      <label *ngIf="mode() === 'register'" class="flex flex-col gap-1.5">
+        <span class="text-xs text-ink-500">الاسم</span>
+        <input required [(ngModel)]="name" name="name"
+          class="bg-base-850 border border-base-700 rounded-md px-3 py-2 text-sm text-ink-100 focus-ring" />
+      </label>
+
+      <label class="flex flex-col gap-1.5">
+        <span class="text-xs text-ink-500">البريد الإلكتروني</span>
+        <input type="email" required [(ngModel)]="email" name="email"
+          class="bg-base-850 border border-base-700 rounded-md px-3 py-2 text-sm text-ink-100 focus-ring" />
+      </label>
+
+      <label class="flex flex-col gap-1.5">
+        <span class="text-xs text-ink-500">كلمة المرور</span>
+        <input type="password" required minlength="6" [(ngModel)]="password" name="password"
+          class="bg-base-850 border border-base-700 rounded-md px-3 py-2 text-sm text-ink-100 focus-ring" />
+      </label>
+
+      <p *ngIf="error()" class="text-xs text-bad">{{ error() }}</p>
+
+      <button type="submit" [disabled]="busy()"
+        class="inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium bg-gold-500 text-base-950 hover:bg-gold-400 disabled:opacity-40 mt-2">
+        {{ busy() ? '...' : (mode() === 'login' ? 'تسجيل الدخول' : 'إنشاء حساب') }}
+      </button>
+    </form>
+
+    
+
+  </div>
+</div>

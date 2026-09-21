@@ -1,0 +1,172 @@
+<div>
+  <div class="streamer-heading flex items-start justify-between mb-5 gap-4">
+    <div>
+      <h1 class="font-display text-xl font-semibold text-ink-100">الستريمرز</h1>
+      
+    </div>
+    <div *ngIf="auth.canWriteFinance()" class="streamer-create-actions flex items-center gap-2">
+      <input [(ngModel)]="newName" placeholder="اسم الستريمر الجديد"
+        class="bg-base-850 border border-base-700 rounded-md px-3 py-2 text-sm text-ink-100 focus-ring w-48" />
+      <button (click)="addStreamer()" class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium bg-gold-500 text-base-950 hover:bg-gold-400">+ إضافة ستريمر</button>
+      <button (click)="excelInput.click()" [disabled]="importBusy || !payroll.currentPeriodId() || payroll.isPeriodLocked()" class="rounded-md px-3 py-2 text-sm border border-gold-500 text-gold-400 disabled:opacity-50">{{ importBusy ? 'جاري الاستيراد…' : 'رفع Excel بالأسماء والبيانات' }}</button>
+      <input #excelInput type="file" accept=".xlsx" (change)="chooseFile($event)" hidden />
+    </div>
+  </div>
+
+  <div class="exchange-panel"><label>سعر الدولار للفترة الحالية (ج.م لكل 1 USD)<input type="number" min="0.01" step="0.01" [ngModel]="payroll.exchangeRate()" (ngModelChange)="exchangeDraft=$event" [disabled]="!auth.can('payroll','write')||payroll.isPeriodLocked()"/></label><button *ngIf="auth.can('payroll','write')" class="bg-gold-500 rounded p-3" (click)="saveExchange()" [disabled]="exchangeBusy||payroll.isPeriodLocked()">حفظ السعر</button></div>
+  <p *ngIf="importError" role="alert" class="text-bad mb-4">{{ importError }}</p>
+  <p *ngIf="importMessage" role="status" class="text-gold-400 mb-4">{{ importMessage }}</p>
+  <div *ngIf="auth.canWriteFinance() && importSheets.length" class="bg-base-900 border border-base-700 rounded-lg p-4 mb-5">
+    <h2 class="font-semibold mb-3">معاينة استيراد البيانات</h2>
+    <div class="flex flex-wrap gap-4 mb-3">
+      <label>الورقة <select [(ngModel)]="sheetIndex" (ngModelChange)="selectSheet()" [disabled]="importBusy" class="bg-base-850 border border-base-700 rounded p-2">
+        <option *ngFor="let sheet of importSheets; let i = index" [ngValue]="i">{{ sheet.name }}</option>
+      </select></label>
+      <label>عمود الاسم <select [(ngModel)]="nameColumn" [disabled]="importBusy" class="bg-base-850 border border-base-700 rounded p-2">
+        <option *ngFor="let column of importColumns" [ngValue]="column.index">{{ column.label }}</option>
+      </select></label>
+      <label>أول صف بيانات <input type="number" min="1" max="20000" [(ngModel)]="startRow" [disabled]="importBusy" class="bg-base-850 border border-base-700 rounded p-2 w-24" /></label>
+    </div>
+    <p class="text-sm text-ink-500">{{ uniqueImportNames.length }} اسم مختلف. يتم استيراد البيانات حسب ربط الأعمدة؛ تحديث الأسماء الموجودة اختياري. الـ Rate للأسماء الجديدة: {{ payroll.settings().streamerRules.defaultRate | percent }}.</p>
+    <p class="text-sm text-ink-500">لو الملف بدون عنوان للعمود، اختار أول صف بيانات 1. الخانات الفارغة والمعادلات يتم تجاهلها.</p>
+    <div class="max-h-40 overflow-auto my-3 text-sm" dir="auto"><div *ngFor="let name of uniqueImportNames.slice(0, 50)">{{ name }}</div></div>
+    <p *ngIf="uniqueImportNames.length > 50" class="text-xs mb-3">المعاينة تعرض أول 50 اسم.</p>
+    <div class="import-mapping"><label *ngFor="let field of importFields">{{field}}<select [(ngModel)]="mapping[field]"><option [ngValue]="-1">عدم الاستيراد</option><option *ngFor="let c of importColumns" [ngValue]="c.index">{{c.label}}</option></select></label></div><label><input type="checkbox" [(ngModel)]="updateExisting"/> تحديث بيانات الأسماء الموجودة (الخانات الفارغة لا تغيّر بياناتها)</label><p>عدد الصفوف: {{importRows.length}}. راجع ربط الأعمدة قبل الاستيراد.</p><button (click)="confirmImport()" [disabled]="importBusy || !importNames.length || importNames.length > 10000 || startRow < 1 || payroll.isPeriodLocked() || !payroll.currentPeriodId()" class="bg-gold-500 text-base-950 rounded px-4 py-2 disabled:opacity-50">استيراد البيانات</button>
+    <button (click)="importSheets = []" [disabled]="importBusy" class="rounded px-4 py-2">إلغاء</button>
+  </div>
+  <div class="mb-3 flex flex-wrap items-center gap-3" *ngIf="auth.canWriteFinance()">
+    <button class="rounded px-4 py-2 bg-red-700 text-white disabled:opacity-40" [disabled]="deleteBusy || !rows().length || payroll.isPeriodLocked() || !payroll.currentPeriodId()" (click)="requestDeleteAll()">حذف الكل</button>
+    <button class="rounded px-4 py-2 border border-red-500 text-red-400 disabled:opacity-40" [disabled]="deleteBusy || !selectedIds.length || payroll.isPeriodLocked() || !payroll.currentPeriodId()" (click)="requestDelete(selectedIds)">حذف المحدد ({{ selectedIds.length }})</button>
+  </div>
+  <p *ngIf="deleteMessage" role="status" class="mb-3 text-gold-400">{{ deleteMessage }}</p>
+  <dialog #deleteDialog aria-labelledby="deleteTitle" (cancel)="deleteBusy ? $event.preventDefault() : null" class="rounded-lg bg-base-900 text-ink-100 border border-red-500 p-6 max-w-lg w-full backdrop:bg-black/70">
+    <h2 id="deleteTitle" class="text-lg font-semibold mb-3">تأكيد حذف {{ deleteIds.length }} ستريمر</h2>
+    <p>هل أنت متأكد؟ سيتم حذف الأسماء المحددة وبيانات أدائها ورواتبها في جميع الفترات وحسابات دخول الستريمرز المرتبطة بها. لا يمكن التراجع عن هذا الإجراء.</p>
+    <p *ngIf="deleteError" role="alert" class="text-red-400 my-3">{{ deleteError }}</p>
+    <div class="flex gap-3 mt-5">
+      <button autofocus (click)="cancelDelete()" [disabled]="deleteBusy" class="rounded border border-base-700 px-4 py-2">إلغاء</button>
+      <button (click)="confirmDelete()" [disabled]="deleteBusy" class="rounded bg-red-700 text-white px-4 py-2 disabled:opacity-40">{{ deleteBusy ? 'جاري الحذف…' : 'تأكيد الحذف' }}</button>
+    </div>
+  </dialog>
+  <p role="alert">{{reportError}}</p><div class="streamer-cards"><article *ngFor="let row of rows()"><h3>{{row.streamer.name}}</h3><div class="card-fields"><label>Score<input type="number" [value]="row.perf.score" [disabled]="payroll.isPeriodLocked()||!auth.canWriteFinance()" (change)="onScoreBlur(row.streamer.id,$any($event.target).value)"/></label><label>Days<input type="number" [value]="row.perf.days" [disabled]="payroll.isPeriodLocked()||!auth.canWriteFinance()" (change)="onDaysBlur(row.streamer.id,$any($event.target).value)"/></label><label>Hours<input type="number" [value]="row.perf.hours" [disabled]="payroll.isPeriodLocked()||!auth.canWriteFinance()" (change)="onHoursBlur(row.streamer.id,$any($event.target).value)"/></label><label>Rate<input type="number" step="0.01" [value]="row.streamer.rate" [disabled]="payroll.isPeriodLocked()||!auth.canWriteFinance()||row.streamer.source==='name-rates'" (change)="onRateBlur(row.streamer.id,$any($event.target).value)"/></label><label>البونص<input type="number" [value]="row.perf.bonus" [disabled]="payroll.isPeriodLocked()||!auth.canWriteFinance()||row.streamer.source==='name-rates'" (change)="onBonusBlur(row.streamer.id,$any($event.target).value)"/></label><label>الخصم<input type="number" [value]="row.perf.deduction" [disabled]="payroll.isPeriodLocked()||!auth.canWriteFinance()||row.streamer.source==='name-rates'" (change)="onDeductionBlur(row.streamer.id,$any($event.target).value)"/></label><label *ngFor="let c of customColumns">{{c.label}}<input [type]="c.type" [value]="customValue(row.streamer.id,c.key)" [disabled]="!auth.isAdmin()||payroll.isPeriodLocked()" (change)="saveCustom(row.streamer.id,c,$any($event.target).value)"/></label></div><p class="card-total">{{formatEGP(row.result.egp)}} <small>USD {{row.result.total|number:'1.2-2'}}</small></p><footer><button (click)="downloadPdf(row.streamer.id)" [disabled]="pdfBusy">تحميل كشف الراتب ↓ PDF</button><button *ngIf="auth.canWriteFinance()&&!payroll.isPeriodLocked()" (click)="requestDelete([row.streamer.id])">حذف</button></footer></article></div><div class="desktop-streamers bg-base-900 border border-base-700 rounded-lg overflow-hidden">
+    <div class="flex items-center gap-3 p-2 border-b border-base-700">
+      <button aria-label="تمرير لليمين" (click)="scrollTable(1)" class="rounded border border-base-700 px-3 py-1">▶</button>
+      <button aria-label="تمرير لليسار" (click)="scrollTable(-1)" class="rounded border border-base-700 px-3 py-1">◀</button>
+      <span class="text-xs text-ink-300">الاسم ثابت — استخدم الشريط أو الأسهم أو Shift مع عجلة الماوس</span>
+    </div>
+    <div #topScroll dir="rtl" (scroll)="syncScroll(topScroll, tableViewport)" tabindex="0" aria-label="التمرير الأفقي أعلى الجدول" style="overflow-x:scroll; overflow-y:hidden; height:20px"><div #scrollSizer style="height:1px"></div></div>
+    <div #tableViewport dir="rtl" (scroll)="syncScroll(tableViewport, topScroll)" (wheel)="onTableWheel($event)" tabindex="0" aria-label="جدول الستريمرز" style="overflow:auto; max-height:65vh; scrollbar-gutter:stable">
+
+    <table class="w-full text-sm min-w-[2300px]">
+      <thead class="sticky top-0 z-30 bg-base-900">
+        <tr class="border-b border-base-700 text-ink-500 text-xs">
+          <th class="text-right font-medium px-4 py-3 sticky right-0 bg-base-900 z-20" style="min-width:210px">
+            <input *ngIf="auth.canWriteFinance()" type="checkbox" aria-label="تحديد الكل" [checked]="allSelected" [indeterminate]="selectedIds.length > 0 && !allSelected" [disabled]="deleteBusy || payroll.isPeriodLocked()" (change)="toggleAll($any($event.target).checked)" class="ml-2" />الاسم</th>
+          <th class="text-right font-medium px-4 py-3">Score</th>
+          <th class="text-right font-medium px-4 py-3">Days</th>
+          <th class="text-right font-medium px-4 py-3">Hours</th>
+          <th class="text-right font-medium px-4 py-3">Score %</th>
+          <th class="text-right font-medium px-4 py-3">Score Amount</th>
+          <th class="text-right font-medium px-4 py-3">Days %</th>
+          <th class="text-right font-medium px-4 py-3">Days Amount</th>
+          <th class="text-right font-medium px-4 py-3">Extra</th>
+          <th class="text-right font-medium px-4 py-3">Extra %</th>
+          <th class="text-right font-medium px-4 py-3">Rate</th>
+          <th class="text-right font-medium px-4 py-3">Total %</th>
+          <th class="text-right font-medium px-4 py-3">Total Score</th>
+          <th class="text-right font-medium px-4 py-3">Cash</th>
+          <th class="text-right font-medium px-4 py-3">بونص</th>
+          <th class="text-right font-medium px-4 py-3">سبب البونص</th>
+          <th class="text-right font-medium px-4 py-3">خصم</th>
+          <th class="text-right font-medium px-4 py-3">سبب الخصم</th>
+          <th class="text-right font-medium px-4 py-3">الإجمالي</th>
+          <th class="text-right font-medium px-4 py-3">EGP</th>
+          <th class="text-right font-medium px-4 py-3">الحالة</th>
+          <th *ngFor="let c of customColumns">{{c.label}}</th><th>PDF</th><th *ngIf="!payroll.isPeriodLocked() && auth.canWriteFinance()" class="px-4 py-3"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of rows()" class="border-b border-base-800 last:border-0 hover:bg-base-850/60">
+          <td class="px-4 py-2 font-medium sticky right-0 bg-base-900 z-20" style="min-width:210px">
+            <input *ngIf="auth.canWriteFinance()" type="checkbox" [attr.aria-label]="'تحديد ' + row.streamer.name" [checked]="selected.has(row.streamer.id)" [disabled]="deleteBusy || payroll.isPeriodLocked()" (change)="toggleSelected(row.streamer.id, $any($event.target).checked)" class="ml-2" />{{ row.streamer.name }}</td>
+          <td class="px-1 py-1">
+            <input type="number" [disabled]="payroll.isPeriodLocked() || !auth.canWriteFinance()" [value]="row.perf.score"
+              (blur)="onScoreBlur(row.streamer.id, $any($event.target).value)"
+              class="w-full bg-transparent border border-transparent rounded px-2 py-1 text-sm hover:border-base-700 focus:border-gold-500/60 focus-ring" />
+          </td>
+          <td class="px-1 py-1">
+            <input type="number" [disabled]="payroll.isPeriodLocked() || !auth.canWriteFinance()" [value]="row.perf.days"
+              (blur)="onDaysBlur(row.streamer.id, $any($event.target).value)"
+              class="w-full bg-transparent border border-transparent rounded px-2 py-1 text-sm hover:border-base-700 focus:border-gold-500/60 focus-ring" />
+          </td>
+          <td class="px-1 py-1">
+            <input type="number" [disabled]="payroll.isPeriodLocked() || !auth.canWriteFinance()" [value]="row.perf.hours"
+              (blur)="onHoursBlur(row.streamer.id, $any($event.target).value)"
+              class="w-full bg-transparent border border-transparent rounded px-2 py-1 text-sm hover:border-base-700 focus:border-gold-500/60 focus-ring" />
+          </td>
+          <td class="px-4 py-2">{{ row.result.scorePct ? (row.result.scorePct | percent:'1.0-2') : '' }}</td>
+          <td class="px-4 py-2">{{ row.result.scoreAmt || '' }}</td>
+          <td class="px-4 py-2">{{ row.result.daysPct ? (row.result.daysPct | percent:'1.0-2') : '' }}</td>
+          <td class="px-4 py-2">{{ row.result.daysAmt || '' }}</td>
+          <td class="px-4 py-2">{{ row.result.extraAmt || '' }}</td>
+          <td class="px-4 py-2">{{ row.result.extraPct ? (row.result.extraPct | percent:'1.0-2') : '' }}</td>
+          <td class="px-1 py-1 w-24">
+            <input type="number" step="0.01" [disabled]="payroll.isPeriodLocked() || !auth.canWriteFinance() || row.streamer.source === 'name-rates'" [value]="row.streamer.rate"
+              (blur)="onRateBlur(row.streamer.id, $any($event.target).value)"
+              class="w-full bg-transparent border border-transparent rounded px-2 py-1 text-sm hover:border-base-700 focus:border-gold-500/60 focus-ring" />
+          </td>
+          <td class="px-4 py-2 text-ink-300">{{ row.result.totalPct | percent:'1.0-2' }}</td>
+          <td class="px-4 py-2 text-ink-300">{{ row.result.totalScore.toLocaleString() }}</td>
+          <td class="px-4 py-2">{{ row.result.cash.toFixed(2) }}</td>
+          <td class="px-1 py-1 w-24">
+            <input type="number" [disabled]="payroll.isPeriodLocked() || !auth.canWriteFinance() || row.streamer.source === 'name-rates'" [value]="row.perf.bonus"
+              (blur)="onBonusBlur(row.streamer.id, $any($event.target).value)"
+              class="w-full bg-transparent border border-transparent rounded px-2 py-1 text-sm hover:border-base-700 focus:border-gold-500/60 focus-ring" />
+          </td>
+          <td class="px-1 py-1 w-36">
+            <input type="text" [disabled]="payroll.isPeriodLocked() || !auth.canWriteFinance() || row.streamer.source === 'name-rates'" [value]="row.perf.bonusReason"
+              (blur)="onBonusReasonBlur(row.streamer.id, $any($event.target).value)" placeholder="سبب البونص"
+              class="w-full bg-transparent border border-transparent rounded px-2 py-1 text-sm hover:border-base-700 focus:border-gold-500/60 focus-ring" />
+          </td>
+          <td class="px-1 py-1 w-24">
+            <input type="number" [disabled]="payroll.isPeriodLocked() || !auth.canWriteFinance() || row.streamer.source === 'name-rates'" [value]="row.perf.deduction"
+              (blur)="onDeductionBlur(row.streamer.id, $any($event.target).value)"
+              class="w-full bg-transparent border border-transparent rounded px-2 py-1 text-sm hover:border-base-700 focus:border-gold-500/60 focus-ring" />
+          </td>
+          <td class="px-1 py-1 w-36">
+            <input type="text" [disabled]="payroll.isPeriodLocked() || !auth.canWriteFinance() || row.streamer.source === 'name-rates'" [value]="row.perf.deductionReason"
+              (blur)="onDeductionReasonBlur(row.streamer.id, $any($event.target).value)" placeholder="سبب الخصم"
+              class="w-full bg-transparent border border-transparent rounded px-2 py-1 text-sm hover:border-base-700 focus:border-gold-500/60 focus-ring" />
+          </td>
+          <td class="px-4 py-2">{{ row.result.total.toFixed(2) }}</td>
+          <td class="px-4 py-2 font-semibold text-gold-400">{{ formatEGP(row.result.egp) }}</td>
+          <td class="px-1 py-1">
+            <select [disabled]="payroll.isPeriodLocked() || !auth.canWriteFinance()" [ngModel]="row.perf.status" (ngModelChange)="onStatusChange(row.streamer.id, $event)"
+              class="bg-transparent text-xs rounded px-1 py-1 border border-transparent hover:border-base-700">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="suspended">Suspended</option>
+            </select>
+          </td>
+          <td *ngFor="let c of customColumns"><input [type]="c.type" [value]="customValue(row.streamer.id,c.key)" [disabled]="!auth.isAdmin()||payroll.isPeriodLocked()" (change)="saveCustom(row.streamer.id,c,$any($event.target).value)"/></td><td><button [disabled]="pdfBusy" (click)="downloadPdf(row.streamer.id)">↓ PDF</button></td><td *ngIf="!payroll.isPeriodLocked() && auth.canWriteFinance()" class="px-2 py-2">
+            <button (click)="requestDelete([row.streamer.id])" class="text-bad hover:bg-bad/10 rounded-md px-3 py-2 text-sm font-medium">حذف</button>
+          </td>
+        </tr>
+      </tbody>
+      <tfoot class="border-t border-base-700 font-semibold text-gold-400">
+        <tr><td colspan="13" class="px-4 py-3">الإجمالي — {{ rows().length }} ستريمر</td>
+          <td class="px-4 py-3">{{ totals().cash | number:'1.2-2' }}</td>
+          <td class="px-4 py-3">{{ totals().bonus | number:'1.2-2' }}</td><td></td>
+          <td class="px-4 py-3">{{ totals().deduction | number:'1.2-2' }}</td><td></td>
+          <td class="px-4 py-3">{{ totals().total | number:'1.2-2' }}</td>
+          <td class="px-4 py-3">{{ formatEGP(totals().egp) }}</td><td></td>
+          <td *ngIf="!payroll.isPeriodLocked() && auth.canWriteFinance()"></td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+  </div>
+  <p class="text-xs text-ink-700 mt-3">
+    EGP = (Cash + بونص − خصم) × معامل التحويل ({{ payroll.settings().egpConversionRate }}). المعامل قابل للتعديل من صفحة الإعدادات.
+  </p>
+</div>

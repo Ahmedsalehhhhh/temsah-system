@@ -1,0 +1,61 @@
+<div><p role="alert" *ngIf="pdfError">{{pdfError}}</p>
+  <div class="people-heading flex items-start justify-between mb-5 gap-4">
+    <div>
+      <h1 class="font-display text-xl font-semibold text-ink-100">الريكروترز</h1>
+    </div>
+    <div *ngIf="auth.canWriteFinance()" class="people-create flex items-center gap-2">
+      <app-person-picker [endpoint]="'/recruiters/identity-options'" (personChange)="person=$event"></app-person-picker>
+      <button (click)="addRecruiter()" class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium bg-gold-500 text-base-950 hover:bg-gold-400">+ إضافة ريكروتر</button>
+    </div>
+  </div>
+
+  <div class="bg-base-900 border border-base-700 rounded-lg overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-base-700 text-ink-500 text-xs">
+          <th class="text-right font-medium px-4 py-3">الاسم</th>
+          <th class="text-right font-medium px-4 py-3">T1</th>
+          <th class="text-right font-medium px-4 py-3">T2</th>
+          <th class="text-right font-medium px-4 py-3">T3</th>
+          <th class="text-right font-medium px-4 py-3">T4</th>
+          <th class="text-right font-medium px-4 py-3">T5</th>
+          <th class="text-right font-medium px-4 py-3">عمولة التوظيف</th>
+          <th class="text-right font-medium px-4 py-3">بونص</th>
+          <th class="text-right font-medium px-4 py-3">سبب البونص</th>
+          <th class="text-right font-medium px-4 py-3">خصم</th>
+          <th class="text-right font-medium px-4 py-3">سبب الخصم</th>
+          <th class="text-right font-medium px-4 py-3">الإجمالي</th>
+          <th *ngIf="!payroll.isPeriodLocked() && auth.canWriteFinance()" class="px-4 py-3"></th>
+        <th>PDF</th></tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of rows()" class="border-b border-base-800 last:border-0 hover:bg-base-850/60">
+          <td class="px-4 py-2.5 font-medium">{{ row.recruiter.name }}</td>
+          <td class="px-4 py-2.5 text-ink-500">{{ row.result.counts[1] }}</td>
+          <td class="px-4 py-2.5 text-ink-500">{{ row.result.counts[2] }}</td>
+          <td class="px-4 py-2.5 text-ink-500">{{ row.result.counts[3] }}</td>
+          <td class="px-4 py-2.5 text-ink-500">{{ row.result.counts[4] }}</td>
+          <td class="px-4 py-2.5 text-ink-500">{{ row.result.counts[5] }}</td>
+          <td class="px-4 py-2.5">{{ formatEGP(row.result.amount) }}</td>
+          <td class="px-1 py-1 w-24">
+            <input type="number" [disabled]="payroll.isPeriodLocked() || !auth.canWriteFinance()" [value]="row.adj.bonus"
+              (blur)="onBonusBlur(row.recruiter.id, $any($event.target).value)"
+              class="w-full bg-transparent border border-transparent rounded px-2 py-1 text-sm hover:border-base-700 focus:border-gold-500/60 focus-ring" />
+          </td>
+          <td class="px-2 py-1"><input aria-label="سبب البونص" [disabled]="payroll.isPeriodLocked() || !auth.canWriteFinance()" [value]="row.adj.bonusReason || ''" (blur)="onReasonBlur(row.recruiter.id, 'bonusReason', $any($event.target).value)" class="bg-transparent border border-base-700 rounded px-2 py-1 w-36" /></td>
+          <td class="px-1 py-1 w-24">
+            <input type="number" [disabled]="payroll.isPeriodLocked() || !auth.canWriteFinance()" [value]="row.adj.deduction"
+              (blur)="onDeductionBlur(row.recruiter.id, $any($event.target).value)"
+              class="w-full bg-transparent border border-transparent rounded px-2 py-1 text-sm hover:border-base-700 focus:border-gold-500/60 focus-ring" />
+          </td>
+          <td class="px-2 py-1"><input aria-label="سبب الخصم" [disabled]="payroll.isPeriodLocked() || !auth.canWriteFinance()" [value]="row.adj.deductionReason || ''" (blur)="onReasonBlur(row.recruiter.id, 'deductionReason', $any($event.target).value)" class="bg-transparent border border-base-700 rounded px-2 py-1 w-36" /></td>
+          <td class="px-4 py-2.5 font-semibold text-gold-400">{{ formatEGP(row.result.total) }}</td>
+          <td *ngIf="!payroll.isPeriodLocked() && auth.canWriteFinance()" class="px-2 py-2">
+            <button (click)="payroll.removeRecruiter(row.recruiter.id)" class="text-bad hover:bg-bad/10 rounded-md px-3 py-2 text-sm font-medium">حذف</button>
+          </td>
+        <td class="pdf-cell"><button [disabled]="pdfBusy" (click)="downloadPdf(row.recruiter.id)" class="row-pdf">PDF <span>↓</span></button></td></tr>
+      </tbody>
+      <tfoot class="border-t border-base-700 text-gold-400 font-semibold"><tr><td colspan="6" class="p-3">الإجمالي</td><td class="p-3">{{ formatEGP(totals().amount) }}</td><td class="p-3">{{ formatEGP(totals().bonus) }}</td><td></td><td class="p-3">{{ formatEGP(totals().deduction) }}</td><td></td><td class="p-3">{{ formatEGP(totals().total) }}</td><td *ngIf="!payroll.isPeriodLocked() && auth.canWriteFinance()"></td></tr></tfoot>
+    </table>
+  </div>
+</div>
