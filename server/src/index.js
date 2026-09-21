@@ -35,6 +35,7 @@ import archiveRoutes from './routes/archive.js'
 import salaryRoutes from './routes/salaries.js'
 
 import permissionRoutes from './routes/permissions.js'
+import supportAssistantRoutes from './routes/supportAssistant.js'
 import { seedPermissions } from './lib/permissionStore.js'
 const app = express()
 
@@ -47,6 +48,7 @@ app.use('/api/game-tracker', gameTrackerRoutes)
 app.use('/api/expenses', expenseRoutes)
 app.use('/api/tasks', taskRoutes)
 app.use('/api/conversations',conversations)
+app.use('/api/support-assistant', supportAssistantRoutes)
 app.use(express.json({ limit: '3mb' }))
 app.use('/api/companies', companyRoutes)
 app.use(morgan('dev'))

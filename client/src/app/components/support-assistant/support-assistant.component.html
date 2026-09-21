@@ -1,0 +1,45 @@
+<button type="button" class="support-launcher" [class.open]="open()" (click)="toggle()" [attr.aria-label]="open() ? 'إغلاق مساعد الدعم' : 'فتح مساعد الدعم'">
+  <svg *ngIf="!open()" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9.8 9.8 0 0 1-4-.8L3 21l1.6-4.2A8.2 8.2 0 0 1 3 11.5a8.4 8.4 0 0 1 9-8.5 8.4 8.4 0 0 1 9 8.5Z"/><path d="M8 11.5h.01M12 11.5h.01M16 11.5h.01"/></svg>
+  <span *ngIf="open()">×</span>
+</button>
+
+<section *ngIf="open()" class="support-chat" dir="rtl" aria-label="مساعد دعم المبدعين">
+  <header>
+    <div class="assistant-avatar">TG</div>
+    <div><h2>مساعد دعم المبدعين</h2><p><i></i>{{ aiEnabled() ? 'ذكاء اصطناعي + سياسات الوكالة' : 'قاعدة المعرفة جاهزة' }}</p></div>
+    <button type="button" class="new-chat" (click)="newChat()" title="محادثة جديدة">＋</button>
+    <button type="button" class="mobile-close" (click)="toggle()" aria-label="إغلاق المساعد">×</button>
+  </header>
+
+  <div class="support-chat-messages" aria-live="polite">
+    <div class="privacy-note">لا ترسل كلمة سر، كود تحقق، أو بيانات دفع.</div>
+    <article *ngFor="let message of messages()" class="support-message" [class.mine]="message.role === 'user'">
+      <div class="bubble"><p>{{ message.content }}</p></div>
+      <small *ngIf="message.notice" class="message-notice">{{ message.notice }}</small>
+      <div *ngIf="message.sources?.length" class="message-sources">
+        <span>مصادر رسمية:</span>
+        <a *ngFor="let source of message.sources" [href]="source" target="_blank" rel="noopener noreferrer">{{ sourceLabel(source) }} ↗</a>
+      </div>
+      <button *ngIf="message.role === 'assistant' && !message.escalated && auth.can('management','write')" type="button" class="escalate-button" (click)="escalate(message)">تسجيل الحالة في Problems</button>
+      <span *ngIf="message.escalated" class="escalated-label">✓ تم تسجيل المشكلة للمتابعة</span>
+    </article>
+    <div *ngIf="busy()" class="typing" aria-label="المساعد يكتب"><span></span><span></span><span></span></div>
+  </div>
+
+  <div *ngIf="messages().length <= 1" class="support-suggestions">
+    <button *ngFor="let suggestion of suggestions" type="button" (click)="useSuggestion(suggestion)">{{ suggestion }}</button>
+  </div>
+  <p *ngIf="error" class="support-error" role="alert">{{ error }}</p>
+  <div *ngIf="imageName" class="selected-image"><span>📎 {{ imageName }}</span><button type="button" (click)="removeImage()">حذف</button></div>
+  <form (ngSubmit)="send()" class="support-compose">
+    <label class="attach-button" title="إرفاق صورة إشعار">
+      <input type="file" accept="image/png,image/jpeg,image/webp" (change)="chooseImage($event)"/>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21.4 11.6-8.9 8.9a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
+    </label>
+    <textarea #messageInput [(ngModel)]="draft" name="message" maxlength="4000" rows="1" placeholder="اكتب المشكلة أو نص إشعار TikTok…" aria-label="رسالتك" (keydown)="onComposerKeydown($event)"></textarea>
+    <button type="submit" class="send-button" [disabled]="busy() || (!draft.trim() && !imageData)" aria-label="إرسال">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+    </button>
+  </form>
+  <footer>المساعد يقدم إرشادًا داخليًا؛ القرار النهائي لمنصة TikTok.</footer>
+</section>

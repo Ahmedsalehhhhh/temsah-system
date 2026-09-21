@@ -1,5 +1,16 @@
 # Golden Streamers — Payroll
 
+## Internal TikTok support assistant
+
+The application includes an authenticated Arabic support assistant for agency employees. It uses a local, source-linked TikTok knowledge base by default and can add AI-generated answers when `OPENAI_API_KEY` is configured on the server. Keep that key in the hosting environment only; never add it to client code or commit it to GitHub.
+
+Optional environment variables:
+
+- `OPENAI_API_KEY`: enables AI answers and screenshot analysis.
+- `OPENAI_MODEL`: model used by the assistant (defaults to `gpt-5-mini`).
+
+Without these variables, question matching, official sources, troubleshooting steps, and escalation to Problems remain available.
+
 نظام رواتب كامل (Frontend + Backend) بديل ملف Base.xlsx، لفريق Golden Streamers (Streamers / Recruiters / Management / IT).
 
 ```

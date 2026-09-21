@@ -10,11 +10,12 @@ import { AuthService } from '../../core/auth.service'
 import { HttpClient } from '@angular/common/http'
 import { firstValueFrom } from 'rxjs'
 import { environment } from '../../../environments/environment'
+import { SupportAssistantComponent } from '../support-assistant/support-assistant.component'
 
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterOutlet, RouterLink, RouterLinkActive, ReportToolsComponent, ResponsiveTablesDirective],
+  imports: [CommonModule, FormsModule, RouterOutlet, RouterLink, RouterLinkActive, ReportToolsComponent, ResponsiveTablesDirective, SupportAssistantComponent],
   templateUrl: './layout.component.html',
   styleUrl: './layout.component.css',
 })
