@@ -150,7 +150,7 @@ test('HTTP self attendance is scoped by authenticated identity, including manage
   const request = await serverFor(t, ['attendance'], () => ({role}))
   t.mock.method(Attendance, 'find', query => {
     observed = query
-    return {sort(){return this}, skip(){return this}, limit(){return this}, populate:async()=>[]}
+    return {sort(){return this}, skip(){return this}, limit(){return this}, populate(){return this},then(resolve,reject){return Promise.resolve([]).then(resolve,reject)}}
   })
   t.mock.method(Attendance, 'countDocuments', async()=>0)
   t.mock.method(Attendance, 'findOne', query => { observed=query; return {sort:async()=>null, populate:async()=>null} })

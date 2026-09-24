@@ -13,7 +13,16 @@ export function passwordValue(value){if(typeof value!=='string'||value.length<12
 export function accountView(u){return {id:String(u._id),fullName:u.fullName||u.name,email:u.email,role:normalizeRole(u.role),status:u.status||'ACTIVE',createdAt:u.createdAt}}
 export function attendanceView(row,now=new Date()){
  if(!row)return null
- return {id:String(row._id),userId:String(row.userId),date:row.workDate,checkIn:row.checkIn,checkOut:row.checkOut||null,status:row.checkOut?'Finished':'Working',workedSeconds:Math.max(0,Math.floor(((row.checkOut||now)-row.checkIn)/1000)),workUpdates:row.updates?.length||0,revision:row.__v||0}
+ const workToday=(row.updates||[]).map(update=>String(update?.text||'').trim()).filter(Boolean).join('\n')
+ return {id:String(row._id),userId:String(row.userId),date:row.workDate,sessionNumber:row.sessionNumber||1,checkIn:row.checkIn,checkOut:row.checkOut||null,status:row.checkOut?'Finished':'Working',workedSeconds:Math.max(0,Math.floor(((row.checkOut||now)-row.checkIn)/1000)),workUpdates:row.updates?.length||0,workToday,revision:row.__v||0}
+}
+export function attendanceDayView(rows,now=new Date(),fallbackDate=null){
+ const shifts=(rows||[]).filter(Boolean).map(row=>({row,view:attendanceView(row,now)})).sort((a,b)=>+new Date(a.row.checkIn)-+new Date(b.row.checkIn))
+ if(!shifts.length)return null
+ const updates=shifts.flatMap(({row})=>(row.updates||[]).map(update=>update?.toObject?update.toObject():update)).sort((a,b)=>+new Date(a.createdAt)-+new Date(b.createdAt))
+ const views=shifts.map(({view},index)=>({...view,sessionNumber:index+1}))
+ const first=views[0],open=views.find(view=>view.status==='Working')
+ return {id:first.id,userId:first.userId,date:first.date||fallbackDate,checkIn:first.checkIn,checkOut:open?null:views[views.length-1].checkOut,status:open?'Working':'Finished',workedSeconds:views.reduce((sum,view)=>sum+view.workedSeconds,0),workUpdates:updates.length,workToday:updates.map(update=>String(update?.text||'').trim()).filter(Boolean).join('\n'),revision:first.revision,shifts:views,updates}
 }
 export function timestamp(value){if(typeof value!=='string'||!/(Z|[+-]\d{2}:\d{2})$/.test(value)||!Number.isFinite(Date.parse(value)))throw fail(400,'استخدم وقتًا مع منطقة زمنية');return new Date(value)}
 

@@ -12,9 +12,14 @@ const TOKEN_KEY = 'golden-payroll-token'
 export class AuthService {
   user = signal<User | null>(null)
   loading = signal(true)
+  private refreshTimer?: ReturnType<typeof setInterval>
 
   constructor(private http: HttpClient, private router: Router) {
-    setInterval(() => { if (this.user() && !this.loading()) void this.refreshPermissions().catch(() => {}) }, 5000)
+    this.refreshTimer = setInterval(() => {
+      if (document.visibilityState === 'visible' && this.user() && !this.loading()) {
+        void this.refreshPermissions().catch(() => {})
+      }
+    }, 30000)
     const token = this.getToken()
     if (!token) {
       this.loading.set(false)

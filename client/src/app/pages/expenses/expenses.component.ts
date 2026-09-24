@@ -8,6 +8,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser'
 import { firstValueFrom } from 'rxjs'
 import { environment } from '../../../environments/environment'
 import { PayrollService } from '../../core/payroll.service'
+import { prepareImage } from '../../core/image-upload'
 interface Company { _id: string; name: string }
 interface Expense { id: string; companyId: string; periodId: string; amount: number; description: string; date: string; receipt: {name:string; mime:string} | null }
 @Component({
@@ -141,20 +142,22 @@ export class ExpensesComponent implements OnDestroy {
     this.fileName=row?.receipt?.name||''
     this.expenseDialog.nativeElement.showModal()
   }
-  private releaseFilePreview(){if(this.filePreview)URL.revokeObjectURL(this.filePreview);this.filePreview='';this.filePdf=null;this.fileMime=''}
+  private releaseFilePreview(){if(this.filePreview.startsWith('blob:'))URL.revokeObjectURL(this.filePreview);this.filePreview='';this.filePdf=null;this.fileMime=''}
   async chooseReceipt(event:Event) {
     const input=event.target as HTMLInputElement, file=input.files?.[0];input.value=''
     if(!file)return
     this.formError=''
-    if(!['image/jpeg','image/png','application/pdf'].includes(file.type)||file.size>3*1024*1024){this.formError='اختار JPG أو PNG أو PDF بحجم لا يتجاوز 3 MB';return}
+    if(!['image/jpeg','image/png','image/webp','application/pdf'].includes(file.type)){this.formError='اختار JPG أو PNG أو WEBP أو PDF';return}
+    if(file.type==='application/pdf'&&file.size>3*1024*1024){this.formError='ملف PDF يجب ألا يتجاوز 3 MB';return}
     this.fileBusy=true
     try{
-      const base64=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=reject;reader.readAsDataURL(file)})
+      const prepared=file.type==='application/pdf'?null:await prepareImage(file)
+      const base64=prepared?.base64||await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=reject;reader.readAsDataURL(file)})
       if(this.destroyed)return
-      this.receiptChange={name:file.name,base64};this.releaseFilePreview()
-      this.filePreview=URL.createObjectURL(file);this.fileMime=file.type;this.fileName=file.name
+      this.receiptChange={name:prepared?.name||file.name,base64};this.releaseFilePreview()
+      this.filePreview=prepared?.dataUrl||URL.createObjectURL(file);this.fileMime=prepared?'image/jpeg':file.type;this.fileName=prepared?.name||file.name
       if(file.type==='application/pdf')this.filePdf=this.sanitizer.bypassSecurityTrustResourceUrl(this.filePreview)
-    }catch{this.formError='تعذر قراءة الملف'}finally{this.fileBusy=false}
+    }catch(e:any){this.formError=e?.message||'تعذر تجهيز الملف'}finally{this.fileBusy=false}
   }
   removeReceipt(){this.receiptChange=null;this.fileName='';this.releaseFilePreview()}
   async saveExpense() {

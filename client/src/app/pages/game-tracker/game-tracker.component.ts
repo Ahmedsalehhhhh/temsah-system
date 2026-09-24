@@ -7,6 +7,7 @@ import { firstValueFrom } from 'rxjs'
 import { AuthService } from '../../core/auth.service'
 import { environment } from '../../../environments/environment'
 import { PayrollService } from '../../core/payroll.service'
+import { prepareImage } from '../../core/image-upload'
 type PhotoKind = 'photoForPayment' | 'photoFromUs' | 'purchaseProof'
 interface Photo { name:string; mime:string }
 interface RecordRow { purchaseProof:Photo|null; customerPaymentMethod:string|null; transferredToCompany:boolean; id:string; date:string; user:string; email:string; product:string; cost:number; price:number; state:string; website:string; paymentMethod:string; photoForPayment:Photo|null; photoFromUs:Photo|null; created_at:string }
@@ -91,19 +92,18 @@ export class GameTrackerComponent implements OnInit,OnDestroy {
     try{await firstValueFrom(this.http.delete(this.api+'/'+row.id));this.notice.set('Record deleted.');if(this.rows().length===1&&this.page>1)this.page--;await this.load()}
     catch(e:any){this.error.set(e.error?.message||e.message)}finally{this.deletingId=null}
   }
-  private clearPreviews(){Object.values(this.previews).forEach(url=>URL.revokeObjectURL(url));this.previews={}}
+  private clearPreviews(){Object.values(this.previews).forEach(url=>{if(url.startsWith('blob:'))URL.revokeObjectURL(url)});this.previews={}}
   async choosePhoto(event:Event,kind:PhotoKind){
     const input=event.target as HTMLInputElement,file=input.files?.[0];input.value=''
     if(!file)return
     this.formError=''
-    if(!['image/png','image/jpeg'].includes(file.type)||file.size>3*1024*1024||!file.size){this.formError='اختار صورة PNG أو JPG بحجم حتى 3 MB';return}
     this.reading++
     try{
-      const base64=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=reject;reader.readAsDataURL(file)})
+      const prepared=await prepareImage(file)
       if(this.destroyed)return
-      if(this.previews[kind])URL.revokeObjectURL(this.previews[kind]!)
-      this.photos[kind]={name:file.name,base64};this.previews[kind]=URL.createObjectURL(file)
-    }catch{this.formError='تعذر قراءة الصورة'}finally{this.reading--}
+      if(this.previews[kind]?.startsWith('blob:'))URL.revokeObjectURL(this.previews[kind]!)
+      this.photos[kind]={name:prepared.name,base64:prepared.base64};this.previews[kind]=prepared.dataUrl
+    }catch(e:any){this.formError=e?.message||'تعذر تجهيز الصورة'}finally{this.reading--}
   }
   async save(){
     if(this.saving||this.reading||!this.auth.canCreateGameTracker())return

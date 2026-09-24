@@ -9,7 +9,7 @@ import {environment} from '../../../environments/environment'
 export class PermissionsComponent implements OnInit {
   data:any; selected=''; employee:any; busy=false; error=''; message=''
   labels:any={NO_ACCESS:'No Access',VIEW_ONLY:'View Only',FULL_EDIT:'Full Edit'}
-  names:any={'management-all':'مشاهدة كل مشاكل الإدارة','attendance-and-work-all':'مشاهدة حضور كل الموظفين','tasks-all':'مشاهدة كل المهام والمحادثات','follow-ups-all':'مشاهدة كل المتابعات','salaries':'مرتبات الموظفين','attendance-own':'Personal attendance / حضوري (own records only)','attendance-and-work':'Team Attendance & Work','tasks':'التاسكات','recruiting-log':'Recruiting Log'}
+  names:any={'management-all':'مشاهدة كل مشاكل الإدارة','attendance-and-work-all':'مشاهدة حضور كل الموظفين','tasks-all':'مشاهدة كل المهام والمحادثات','follow-ups-all':'مشاهدة كل المتابعات','salaries':'مرتبات الموظفين','inventory':'المخزون والتسليمات','attendance-own':'Personal attendance / حضوري (own records only)','attendance-and-work':'Team Attendance & Work','tasks':'التاسكات','recruiting-log':'Recruiting Log'}
   private api=environment.apiUrl+'/permissions'
   constructor(private http:HttpClient,public auth:AuthService){}
   get roles(){return Object.keys(this.data?.roles || {})}

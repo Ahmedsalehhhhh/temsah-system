@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs'
 import { environment } from '../../../environments/environment'
 import { AuthService } from '../../core/auth.service'
 import { PayrollService } from '../../core/payroll.service'
+import { prepareImage } from '../../core/image-upload'
 
 type ChatRole = 'user' | 'assistant'
 type ChatMessage = {
@@ -15,6 +16,7 @@ type ChatMessage = {
   mode?: 'ai' | 'knowledge'
   notice?: string
   escalated?: boolean
+  supportCase?: boolean
 }
 
 @Component({
@@ -36,10 +38,10 @@ export class SupportAssistantComponent {
   imageData = ''
   imageName = ''
   readonly suggestions = [
-    'الـLIVE اتقفل، أراجع إيه؟',
-    'الفيديو غير مؤهل للـFor You',
-    'مشكلة في الهدايا أو Diamonds',
-    'الحساب عليه Integrity & Authenticity',
+    'عندي مشكلة في الـLIVE',
+    'ساعدني أفهم إشعار TikTok',
+    'عايز رأيك في موضوع',
+    'اشرحلي حاجة ببساطة',
   ]
 
   constructor(public auth: AuthService, private payroll: PayrollService, private http: HttpClient) {
@@ -58,7 +60,7 @@ export class SupportAssistantComponent {
     if (!this.open()) return
     setTimeout(() => this.messageInput?.nativeElement.focus(), 50)
     if (!this.messages().length) {
-      this.messages.set([{ role: 'assistant', content: 'أهلًا، أنا مساعد فريق دعم المبدعين. اكتب المشكلة أو أرفق صورة إشعار TikTok بعد إخفاء أي بيانات حساسة، وهساعدك تشخّصها خطوة بخطوة.' }])
+      this.messages.set([{ role: 'assistant', content: 'أهلًا 👋 كلّمني براحتك في أي سؤال أو موضوع. ولو عندك مشكلة تخص TikTok أو شغل الوكالة، هساعدك فيها خطوة بخطوة.' }])
       this.persist()
     }
     try {
@@ -69,7 +71,12 @@ export class SupportAssistantComponent {
 
   useSuggestion(value: string) {
     this.draft = value
-    this.messageInput?.nativeElement.focus()
+    setTimeout(() => {
+      const input = this.messageInput?.nativeElement
+      if (!input) return
+      this.resizeTextarea(input)
+      input.focus()
+    })
   }
 
   async chooseImage(event: Event) {
@@ -77,18 +84,12 @@ export class SupportAssistantComponent {
     const input = event.target as HTMLInputElement
     const file = input.files?.[0]
     if (!file) return
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 3 * 1024 * 1024) {
-      this.error = 'اختر صورة PNG أو JPG أو WEBP بحجم لا يزيد عن 3 MB.'
-      input.value = ''
-      return
-    }
-    this.imageName = file.name
-    this.imageData = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(String(reader.result || ''))
-      reader.onerror = () => reject(reader.error)
-      reader.readAsDataURL(file)
-    })
+    input.value = ''
+    try {
+      const prepared = await prepareImage(file)
+      this.imageName = prepared.name
+      this.imageData = prepared.dataUrl
+    } catch (error: any) { this.error = error?.message || 'تعذر تجهيز الصورة' }
   }
 
   removeImage() { this.imageData = ''; this.imageName = '' }
@@ -102,6 +103,10 @@ export class SupportAssistantComponent {
     this.messages.update(rows => [...rows, { role: 'user', content: shownContent }])
     const image = this.imageData
     this.draft = ''
+    setTimeout(() => {
+      const input = this.messageInput?.nativeElement
+      if (input) this.resizeTextarea(input)
+    })
     this.removeImage()
     this.busy.set(true)
     this.persist()
@@ -110,7 +115,7 @@ export class SupportAssistantComponent {
       const result = await firstValueFrom(this.http.post<any>(this.api + '/chat', { message: content, image, history }))
       this.messages.update(rows => [...rows, {
         role: 'assistant', content: result.answer, sources: result.sources || [], mode: result.mode,
-        notice: result.notice,
+        notice: result.notice, supportCase: Boolean(result.supportCase),
       }])
       this.aiEnabled.set(result.mode === 'ai')
       this.persist()
@@ -129,6 +134,13 @@ export class SupportAssistantComponent {
     }
   }
 
+  resizeComposer(event: Event) { this.resizeTextarea(event.target as HTMLTextAreaElement) }
+
+  private resizeTextarea(input: HTMLTextAreaElement) {
+    input.style.height = 'auto'
+    input.style.height = `${Math.min(input.scrollHeight, 120)}px`
+  }
+
   async escalate(message: ChatMessage) {
     const question = [...this.messages()].reverse().find(item => item.role === 'user')?.content || 'حالة من مساعد الدعم'
     const periodId = this.payroll.currentPeriodId()
@@ -145,7 +157,7 @@ export class SupportAssistantComponent {
   }
 
   newChat() {
-    this.messages.set([{ role: 'assistant', content: 'بدأنا محادثة جديدة. اكتب نوع المشكلة ونص رسالة TikTok كما ظهرت.' }])
+    this.messages.set([{ role: 'assistant', content: 'بدأنا محادثة جديدة. قولّي عايز تتكلم في إيه؟' }])
     this.draft = ''
     this.removeImage()
     this.error = ''
@@ -165,7 +177,7 @@ export class SupportAssistantComponent {
 
   private storageKey() { return `temsah-support-chat:${this.auth.user()?.id || 'user'}` }
   private persist() {
-    const safe = this.messages().slice(-30).map(({ role, content, sources, mode, notice, escalated }) => ({ role, content, sources, mode, notice, escalated }))
+    const safe = this.messages().slice(-30).map(({ role, content, sources, mode, notice, escalated, supportCase }) => ({ role, content, sources, mode, notice, escalated, supportCase }))
     try { localStorage.setItem(this.storageKey(), JSON.stringify(safe)) } catch {}
   }
   private scrollToBottom() {

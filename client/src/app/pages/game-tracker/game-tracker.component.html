@@ -44,8 +44,8 @@
       <label>Our Payment Method<select class="field" name="paymentMethod" [(ngModel)]="form.paymentMethod" required><option *ngFor="let method of paymentMethods" [value]="method">{{ method }}</option></select></label>
       <label>Customer Payment Method<select class="field" name="customerPaymentMethod" [(ngModel)]="form.customerPaymentMethod"><option [ngValue]="null">Not specified</option><option *ngFor="let method of paymentMethods" [value]="method">{{ method }}</option></select></label>
       <label class="flex gap-2 items-center"><input type="checkbox" name="transferredToCompany" [(ngModel)]="form.transferredToCompany" />Transferred to Company</label>
-      <div class="text-xs text-ink-500 self-center">الصور اختيارية: PNG أو JPG، حتى 3 MB لكل صورة.</div>
-      <label *ngFor="let kind of photoKinds">{{ photoLabels[kind] }}<input class="field" type="file" [attr.name]="kind" accept=".png,.jpg,.jpeg" (change)="choosePhoto($event,kind)" [disabled]="reading>0" /><img *ngIf="previews[kind]" [src]="previews[kind]" [alt]="kind+' preview'" class="max-h-32 rounded mt-2" /></label>
+      <div class="text-xs text-ink-500 self-center">الصور اختيارية: PNG أو JPG أو WEBP، حتى 20 MB وتُضغط تلقائيًا.</div>
+      <label *ngFor="let kind of photoKinds">{{ photoLabels[kind] }}<input class="field" type="file" [attr.name]="kind" accept=".png,.jpg,.jpeg,.webp" (change)="choosePhoto($event,kind)" [disabled]="reading>0" /><img *ngIf="previews[kind]" [src]="previews[kind]" [alt]="kind+' preview'" class="max-h-32 rounded mt-2" /></label>
     </fieldset>
     <p *ngIf="formError" role="alert" class="text-red-400 mt-3">{{ formError }}</p>
     <div class="flex gap-3 mt-5"><button *ngIf="auth.canWriteFinance()" type="submit" [disabled]="saving || reading>0 || !recordForm.valid" class="rounded bg-gold-500 text-base-950 px-4 py-2">{{ saving ? 'جاري الحفظ…' : 'Save' }}</button><button type="button" (click)="recordDialog.close()" [disabled]="saving || reading>0" class="rounded border border-base-700 px-4 py-2">إلغاء</button></div>

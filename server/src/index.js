@@ -36,6 +36,7 @@ import salaryRoutes from './routes/salaries.js'
 
 import permissionRoutes from './routes/permissions.js'
 import supportAssistantRoutes from './routes/supportAssistant.js'
+import inventoryRoutes from './routes/inventory.js'
 import { seedPermissions } from './lib/permissionStore.js'
 const app = express()
 
@@ -72,6 +73,7 @@ app.use('/api/employees', employeesRoutes)
 app.use('/api/payroll', payrollRoutes)
 app.use('/api/archive', archiveRoutes)
 app.use('/api/salaries', salaryRoutes)
+app.use('/api/inventory', inventoryRoutes)
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public')
 if (existsSync(path.join(webRoot, 'index.html'))) {
@@ -87,7 +89,8 @@ const PORT = process.env.PORT || 3000
 connectDB()
   .then(async () => {
     await seedPermissions()
-    await Attendance.init()
+// Keep production indexes aligned with the schema (including the two shifts/day index).
+await Attendance.syncIndexes()
     app.listen(PORT, () => console.log(`Golden Streamers API running on port ${PORT}`))
   })
   .catch((err) => {

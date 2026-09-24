@@ -118,8 +118,8 @@ test('checkout accepts a fresh note or an already-saved report and closes atomic
     assert.deepEqual(query['updates.999'],{$exists:false})
     if(!open)return null
     open=false;writes++
-    if(query['updates.0']){
-      assert.deepEqual(query['updates.0'],{$exists:true})
+    if(query.$or){
+      assert.deepEqual(query.$or,[{'updates.0':{$exists:true}},{hasPriorReport:true}])
       assert.equal(update.$push,undefined)
     }else{
       assert.equal(update.$push.updates.text,'Last thing done')

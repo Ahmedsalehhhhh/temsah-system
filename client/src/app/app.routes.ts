@@ -25,6 +25,7 @@ import { EmployeeAccountsComponent } from './pages/attendance/employees.componen
 import { GameTrackerComponent } from './pages/game-tracker/game-tracker.component'
 import { TasksComponent } from './pages/attendance/tasks.component'
 import { FollowUpsComponent } from './pages/follow-ups/follow-ups.component'
+import { InventoryComponent } from './pages/inventory/inventory.component'
 
 import { PermissionsComponent, NoAccessComponent } from './pages/permissions/permissions.component'
 
@@ -46,6 +47,7 @@ export const routes: Routes = [
       { path: 'attendance-and-work', component: AttendanceComponent, canActivate: [roleGuard], data: { allAttendance: true } },
       { path: 'tasks', component: TasksComponent, canActivate: [roleGuard] },
       { path: 'follow-ups', component: FollowUpsComponent, canActivate: [managementGuard] },
+      { path: 'inventory', component: InventoryComponent, canActivate: [roleGuard] },
       { path: 'employee-accounts', component: EmployeeAccountsComponent, canActivate: [employeeAdminGuard] },
       { path: 'game-tracker', component: GameTrackerComponent, canActivate: [gameTrackerGuard] },
       { path: 'game-tracker-denied', component: GameTrackerDeniedComponent },

@@ -56,6 +56,7 @@
   <a *ngIf="auth.canAccessGameTracker()" routerLink="/game-tracker" routerLinkActive="active"><span>▦</span> Game Tracker</a>
   <a *ngIf="auth.can('attendance-and-work') || auth.can('tasks')" routerLink="/attendance-and-work" routerLinkActive="active"><span>◷</span> الحضور والعمل</a>
   <a *ngIf="auth.can('tasks')" routerLink="/tasks" routerLinkActive="active"><span>✓</span> التاسكات</a>
+  <a *ngIf="auth.can('inventory')" routerLink="/inventory" routerLinkActive="active"><span>▣</span> المخزون والتسليمات</a>
   <a *ngIf="auth.can('management')" routerLink="/follow-ups" routerLinkActive="active"><span>↻</span> المتابعات</a>
   <a *ngIf="auth.can('attendance-own')" routerLink="/attendance" routerLinkActive="active"><span>◷</span> حضوري</a>
   <a *ngIf="auth.isAdmin()" routerLink="/permissions" routerLinkActive="active"><span>◇</span> إدارة الصلاحيات</a>

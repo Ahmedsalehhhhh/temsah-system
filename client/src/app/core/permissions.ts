@@ -1,6 +1,6 @@
 export const ROLES = ['EMPLOYEE', 'ACCOUNTANT', 'MANAGEMENT', 'ADMIN', 'SUPER_ADMIN'] as const
 export type Role = typeof ROLES[number]
-export const PAGES = ['overview','payroll','streamers','name-rates','recruiters','recruiting-log','management-payroll','it','settings','expenses','archive','game-tracker','management','attendance-and-work','employee-accounts','tasks','attendance-own','management-all','attendance-and-work-all','tasks-all','follow-ups-all','salaries']
+export const PAGES = ['overview','payroll','streamers','name-rates','recruiters','recruiting-log','management-payroll','it','settings','expenses','archive','game-tracker','management','attendance-and-work','employee-accounts','tasks','attendance-own','management-all','attendance-and-work-all','tasks-all','follow-ups-all','salaries','inventory']
 export type AccessLevel = 'NO_ACCESS' | 'VIEW_ONLY' | 'FULL_EDIT'
 export function normalizeRole(role: string | undefined): string {
   const value = (role || '').toUpperCase()

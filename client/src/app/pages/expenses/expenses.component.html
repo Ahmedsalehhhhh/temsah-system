@@ -56,7 +56,7 @@
       <label>المبلغ بالجنيه المصري<input class="field" type="number" name="amount" [(ngModel)]="form.amount" min="0.01" max="1000000000" step="0.01" required autofocus /></label>
       <label>البيان / الوصف<textarea class="field" name="description" [(ngModel)]="form.description" required maxlength="1000" rows="3"></textarea></label>
       <label>التاريخ<input class="field" type="date" name="date" [(ngModel)]="form.date" required /></label>
-      <label>إيصال / إثبات دفع (اختياري، حتى 3 MB)<input class="field" type="file" accept=".jpg,.jpeg,.png,.pdf" (change)="chooseReceipt($event)" [disabled]="fileBusy" /></label>
+      <label>إيصال / إثبات دفع (الصورة حتى 20 MB وتُضغط تلقائيًا، PDF حتى 3 MB)<input class="field" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" (change)="chooseReceipt($event)" [disabled]="fileBusy" /></label>
       <div *ngIf="fileName" class="mb-4"><p class="text-sm break-all">{{ fileName }}</p><img *ngIf="filePreview && fileMime.startsWith('image/')" [src]="filePreview" alt="معاينة الإيصال المختار" class="max-h-32 rounded mt-2" /><iframe *ngIf="filePdf" [src]="filePdf" title="معاينة ملف PDF المختار" class="w-full h-48 rounded mt-2 border border-base-700"></iframe><button type="button" (click)="removeReceipt()" [disabled]="fileBusy" class="text-red-400 text-sm mt-2">إزالة الإيصال</button></div>
       <p *ngIf="formError" role="alert" class="text-red-400 mb-3">{{ formError }}</p>
       <div class="flex gap-3"><button type="submit" [disabled]="busy || fileBusy" class="bg-gold-500 text-base-950 rounded px-4 py-2">{{ busy ? 'جاري الحفظ…' : 'حفظ المصروف' }}</button><button type="button" [disabled]="busy || fileBusy" (click)="expenseDialog.close()" class="rounded border border-base-700 px-4 py-2">إلغاء</button></div>

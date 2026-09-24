@@ -20,6 +20,7 @@ import User from '../models/User.js'
 import Company from '../models/Company.js'
 import Expense from '../models/Expense.js'
 import Attendance from '../models/Attendance.js'
+import {attendanceDayView} from '../lib/attendance.js'
 import WorkTask from '../models/WorkTask.js'
 import FollowUp from '../models/FollowUp.js'
 import Problem from '../models/Problem.js'
@@ -59,7 +60,7 @@ export async function reportData(user,key,periodId,date){
   rows=(await lean(RecruitingRecord.find({period:period._id}).populate('recruiter','name'))).map(x=>({id:String(x._id),name:x.user,recruiter:name(x.recruiter),tier:x.tier,score:x.score,days:x.days,hours:x.hours}));columns=cols([['name','الاسم'],['recruiter','الريكروتر'],['tier','Tier'],['score','Score'],['days','Days'],['hours','Hours']]);title='سجل الريكروتينج'
  }else if(['attendance','attendance-and-work'].includes(key)){
   const day=date||new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Cairo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());if(!/^\d{4}-\d{2}-\d{2}$/.test(day))throw fail(400,'تاريخ غير صالح')
-  const all=key==='attendance-and-work'&&canViewAll(user,key),people=await lean(User.find(all?{}:{_id:user._id}).select('name fullName email')),records=await lean(Attendance.find({workDate:day,userId:{$in:people.map(x=>x._id)}}));rows=people.map(p=>{const r=records.find(x=>String(x.userId)===String(p._id));return {id:String(p._id),name:name(p),email:p.email,date:day,checkIn:r?.checkIn?.toISOString()||'',checkOut:r?.checkOut?.toISOString()||'',hours:r?.checkIn?Math.max(0,((r.checkOut||new Date())-r.checkIn)/3600000):0,status:r?(r.checkOut?'انتهى':'يعمل الآن'):'لم يبدأ',updates:(r?.updates||[]).map(x=>x.text).join('\n')}});columns=[...identity,...cols([['date','التاريخ'],['checkIn','الحضور'],['checkOut','الانصراف'],['hours','ساعات العمل'],['status','الحالة'],['updates','التحديثات']])];title='الحضور والانصراف'
+  const all=key==='attendance-and-work'&&canViewAll(user,key),people=await lean(User.find(all?{}:{_id:user._id}).select('name fullName email')),records=await lean(Attendance.find({workDate:day,userId:{$in:people.map(x=>x._id)}}));rows=people.map(p=>{const r=attendanceDayView(records.filter(x=>String(x.userId)===String(p._id)),new Date(),day);return {id:String(p._id),name:name(p),email:p.email,date:day,periods:(r?.shifts||[]).map(s=>`${s.checkIn?.toISOString?.()||s.checkIn} → ${s.checkOut?.toISOString?.()||s.checkOut||'مفتوحة'}`).join('\n'),hours:(r?.workedSeconds||0)/3600,status:r?(r.status==='Finished'?'انتهى':'يعمل الآن'):'لم يبدأ',updates:r?.workToday||''}});columns=[...identity,...cols([['date','التاريخ'],['periods','فترات العمل'],['hours','ساعات العمل'],['status','الحالة'],['updates','التحديثات']])];title='الحضور والانصراف'
  }else if(key==='tasks'){
   rows=(await lean(WorkTask.find(taskScope(user)).populate('assignedTo userId','name fullName'))).map(r=>({id:String(r._id),name:name(r.assignedTo),text:r.text,status:r.status,by:name(r.userId),date:r.createdAt?.toISOString()}));columns=cols([['name','الموظف'],['text','المهمة'],['status','الحالة'],['by','بواسطة'],['date','التاريخ']]);title='المهام'
  }else if(key==='follow-ups'){
