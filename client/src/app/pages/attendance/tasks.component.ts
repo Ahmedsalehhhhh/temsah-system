@@ -21,7 +21,7 @@ export class TasksComponent implements OnInit,OnDestroy {
  form={text:'',status:'Pending',assignedTo:''};image:any=undefined;preview=''
  private api=environment.apiUrl+'/tasks'
  constructor(public auth:AuthService,private http:HttpClient){}
- ngOnInit(){void this.load();this.poll=setInterval(()=>{if(!this.busy)void this.load()},5000);if(!this.mine&&this.auth.can('tasks','write'))void firstValueFrom(this.http.get<any[]>(environment.apiUrl+'/tasks/assignees',{params:{active:'true'}})).then(rows=>this.employees=rows).catch(e=>this.error=e.message)}
+ ngOnInit(){void this.load();this.poll=setInterval(()=>{if(document.visibilityState==='visible'&&!this.busy&&!this.loading)void this.load()},30000);if(!this.mine&&this.auth.can('tasks','write'))void firstValueFrom(this.http.get<any[]>(environment.apiUrl+'/tasks/assignees',{params:{active:'true'}})).then(rows=>this.employees=rows).catch(e=>this.error=e.message)}
  get pages(){return Math.max(1,Math.ceil(this.total/20))}
  owns(row:any){return !this.mine && this.auth.can('tasks','write') && (this.auth.isAdmin?.() || row.userId?._id===this.auth.user?.()?.id || row.assignedTo?._id===this.auth.user?.()?.id) && !!row._id}
  async load(){this.loading=true;try{const r=await firstValueFrom(this.http.get<any>(this.api+(this.mine?'/mine':''),{params:{page:this.page}}));this.rows.set(r.rows);this.total=r.total;this.error=''}catch(e:any){this.error=e.error?.message||e.message}finally{this.loading=false}}

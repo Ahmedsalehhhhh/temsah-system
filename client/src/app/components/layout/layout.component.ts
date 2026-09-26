@@ -40,6 +40,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
   notifications = signal<any[]>([])
   notificationsOpen = signal(false)
   private notificationsPoll: any
+  private notificationsLoading = false
   newLabel = ''
 
   constructor(public payroll: PayrollService, public auth: AuthService, private router: Router, private http: HttpClient) {
@@ -65,11 +66,13 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     void this.loadNotifications()
-    this.notificationsPoll = setInterval(() => void this.loadNotifications(), 10000)
+    this.notificationsPoll = setInterval(() => { if(document.visibilityState === 'visible') void this.loadNotifications() }, 30000)
   }
   ngOnDestroy() { clearInterval(this.notificationsPoll) }
   async loadNotifications() {
-    try { const result = await firstValueFrom(this.http.get<any>(environment.apiUrl + '/tasks/notifications')); this.notifications.set(result.rows || []) } catch {}
+    if(this.notificationsLoading)return
+    this.notificationsLoading=true
+    try { const result = await firstValueFrom(this.http.get<any>(environment.apiUrl + '/tasks/notifications')); this.notifications.set(result.rows || []) } catch {} finally { this.notificationsLoading=false }
   }
   async openNotifications() { await this.router.navigate(['/notifications']) }
   goToTasks() { this.notificationsOpen.set(false); this.notifications.set([]); void this.router.navigate(['/tasks']) }

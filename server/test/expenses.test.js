@@ -13,7 +13,10 @@ import expensesRouter from '../src/routes/expenses.js'
 import { expenseInput, companyName } from '../src/lib/expenses.js'
 const c1='111111111111111111111111',c2='222222222222222222222222',p1='333333333333333333333333',p2='444444444444444444444444',id='555555555555555555555555'
 test('expense validation: exact currency, valid date, safe files and company names',()=>{
- assert.equal(expenseInput({amount:10.25,description:' إيجار ',date:'2026-09-12'}).amountMinor,1025)
+ const classified=expenseInput({amount:10.25,category:'  أجهزة   ومعدات ',description:' إيجار ',date:'2026-09-12'})
+ assert.equal(classified.amountMinor,1025);assert.equal(classified.category,'أجهزة ومعدات')
+ assert.equal(expenseInput({amount:10.25,description:' إيجار ',date:'2026-09-12'}).category,'غير مصنف')
+ assert.throws(()=>expenseInput({amount:1,category:'x'.repeat(81),description:'x',date:'2026-09-12'}),{status:400})
  for(const amount of [0,-1,1.001,Infinity,'10'])assert.throws(()=>expenseInput({amount,description:'x',date:'2026-09-12'}),{status:400})
  assert.throws(()=>expenseInput({amount:1,description:'x',date:'2026-02-30'}),{status:400})
  assert.throws(()=>expenseInput({amount:1,description:'x',date:'2026-09-12',receipt:{name:'fake.png',base64:Buffer.from('<html>').toString('base64')}}),{status:400})
@@ -46,9 +49,9 @@ test('HTTP companies/expenses: CRUD, company-period isolation, private receipts,
  assert.equal((await request('/companies','POST',{name:'Golden Streamers'})).status,201)
  assert.equal((await (await request('/companies')).json()).length,1)
  assert.equal((await request('/companies','POST',{name:'golden streamers'})).status,409)
- const body={amount:125.75,description:'إيجار مكتب',date:'2026-09-12',receipt:{name:'receipt.pdf',base64:Buffer.from('%PDF-1.4\ntest').toString('base64')}}
+ const body={amount:125.75,category:'إيجار',description:'إيجار مكتب',date:'2026-09-12',receipt:{name:'receipt.pdf',base64:Buffer.from('%PDF-1.4\ntest').toString('base64')}}
  const created=await request(base,'POST',body);assert.equal(created.status,201)
- const row=await created.json();assert.equal(row.receipt.mime,'application/pdf');assert.equal(row.receipt.data,undefined)
+ const row=await created.json();assert.equal(row.category,'إيجار');assert.equal(row.receipt.mime,'application/pdf');assert.equal(row.receipt.data,undefined)
  assert.equal((await (await request(base)).json()).total,125.75)
  for(const q of ['?companyId='+c2+'&periodId='+p1,'?companyId='+c1+'&periodId='+p2]){
  assert.equal((await (await request('/expenses'+q)).json()).expenses.length,0)

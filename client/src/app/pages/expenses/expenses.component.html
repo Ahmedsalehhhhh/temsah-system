@@ -9,6 +9,11 @@
   <p *ngIf="companiesLoading()" role="status">جاري تحميل الشركات…</p>
   <p *ngIf="error()" role="alert" class="text-red-400 mb-3">{{ error() }} <button class="underline" (click)="companies().length ? loadExpenses() : loadCompanies()">إعادة المحاولة</button></p>
   <p *ngIf="message()" role="status" class="text-good mb-3">{{ message() }}</p>
+  <div class="summary-grid" *ngIf="payroll.currentPeriodId()">
+    <article class="summary-card total"><small>إجمالي مصروفات كل الشركات</small><strong>{{ money(summary().total) }}</strong><small>{{ payroll.currentPeriod()?.label }}</small></article>
+    <article class="summary-card" *ngFor="let item of summary().byCategory"><small>{{ item.category }}</small><strong>{{ money(item.amount) }}</strong></article>
+    <article class="summary-card" *ngIf="!summary().byCategory.length"><small>التصنيفات</small><strong>لا توجد مصروفات</strong></article>
+  </div>
   <div *ngIf="!companiesLoading() && !companies().length && !error()" class="p-8 text-center text-ink-500">لا توجد شركات بعد. أضف أول شركة لبدء تسجيل المصروفات.</div>
   <div *ngIf="company() as current" role="tabpanel" [attr.aria-label]="current.name">
     <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
@@ -21,20 +26,18 @@
     </div>
     <p *ngIf="payroll.isPeriodLocked()" class="text-sm text-ink-500 mb-3">الفترة مقفولة — المصروفات والإيصالات للعرض فقط.</p>
     <p *ngIf="loading()" role="status" class="p-5">جاري تحميل المصروفات…</p>
-    <div class="overflow-x-auto" *ngIf="!loading()">
-      <table class="w-full text-sm min-w-[650px]">
-        <thead class="text-ink-500 border-b border-base-700"><tr><th class="text-right p-3">التاريخ</th><th class="text-right p-3">البيان</th><th class="text-right p-3">المبلغ</th><th class="text-right p-3">الإيصال</th><th *ngIf="auth.canWriteFinance()" class="text-right p-3">الإجراءات</th></tr></thead>
+    <label class="expense-filter" *ngIf="!loading()">فلترة حسب الكاتجوري<select class="field" [ngModel]="categoryFilter()" (ngModelChange)="categoryFilter.set($event)"><option value="">كل الكاتجوري</option><option *ngFor="let category of summary().categories" [value]="category">{{category}}</option></select></label>
+    <div class="overflow-x-auto mobile-card-container" *ngIf="!loading()">
+      <table class="w-full text-sm min-w-[720px] mobile-card-table">
+        <thead class="text-ink-500 border-b border-base-700"><tr><th class="text-right p-3">التاريخ</th><th class="text-right p-3">الكاتجوري</th><th class="text-right p-3">البيان</th><th class="text-right p-3">المبلغ</th><th class="text-right p-3">الإيصال</th><th *ngIf="auth.canWriteFinance()" class="text-right p-3">الإجراءات</th></tr></thead>
         <tbody>
-          <tr *ngFor="let row of rows()" class="border-b border-base-800">
-            <td class="p-3 whitespace-nowrap">{{ row.date }}</td><td class="p-3 max-w-sm break-words">{{ row.description }}</td>
-            <td class="p-3 text-good font-semibold whitespace-nowrap">{{ money(row.amount) }}</td>
-            <td class="p-3"><button *ngIf="row.receipt; else noReceipt" (click)="previewReceipt(row)" [attr.aria-label]="'عرض إيصال ' + row.description" class="text-gold-400 underline">
-              <img *ngIf="receipts()[row.id]; else fileLabel" [src]="receipts()[row.id]" alt="صورة الإيصال" class="w-16 h-14 rounded object-cover border border-base-700" />
-              <ng-template #fileLabel>{{ row.receipt.mime === 'application/pdf' ? 'عرض PDF' : 'عرض الصورة' }}</ng-template>
-            </button><ng-template #noReceipt><span class="text-ink-500">بدون إيصال</span></ng-template></td>
-            <td *ngIf="auth.canWriteFinance()" class="p-3 whitespace-nowrap"><button *ngIf="auth.canWriteFinance()" (click)="openExpense(row)" [disabled]="payroll.isPeriodLocked()" class="text-gold-400 px-2 py-2">تعديل</button><button *ngIf="auth.canWriteFinance()" (click)="askDelete(row)" [disabled]="payroll.isPeriodLocked()" class="text-red-400 px-2 py-2">حذف</button></td>
+          <tr *ngFor="let row of visibleRows()" class="border-b border-base-800">
+            <td data-label="التاريخ" class="p-3 whitespace-nowrap">{{ row.date }}</td><td data-label="الكاتجوري" class="p-3"><span class="badge pending">{{row.category}}</span></td><td data-label="البيان" class="p-3 max-w-sm break-words card-wide">{{ row.description }}</td>
+            <td data-label="المبلغ" class="p-3 text-good font-semibold whitespace-nowrap">{{ money(row.amount) }}</td>
+            <td data-label="الإيصال" class="p-3"><button *ngIf="row.receipt; else noReceipt" (click)="previewReceipt(row)" [attr.aria-label]="'عرض إيصال ' + row.description" class="text-gold-400 underline">{{ row.receipt.mime === 'application/pdf' ? 'عرض PDF' : 'عرض الصورة' }}</button><ng-template #noReceipt><span class="text-ink-500">بدون إيصال</span></ng-template></td>
+            <td data-label="الإجراءات" *ngIf="auth.canWriteFinance()" class="p-3 whitespace-nowrap"><button (click)="openExpense(row)" [disabled]="payroll.isPeriodLocked()" class="text-gold-400 px-2 py-2">تعديل</button><button (click)="askDelete(row)" [disabled]="payroll.isPeriodLocked()" class="text-red-400 px-2 py-2">حذف</button></td>
           </tr>
-          <tr *ngIf="!rows().length && !error()"><td [attr.colspan]="auth.canWriteFinance() ? 5 : 4" class="p-8 text-center text-ink-500">لا توجد مصروفات لهذه الشركة في الفترة المختارة.</td></tr>
+          <tr *ngIf="!visibleRows().length && !error()"><td [attr.colspan]="auth.canWriteFinance() ? 6 : 5" class="p-8 text-center text-ink-500">لا توجد مصروفات مطابقة في هذه الشركة.</td></tr>
         </tbody>
       </table>
     </div>
@@ -54,6 +57,7 @@
   <form (ngSubmit)="saveExpense()">
     <fieldset [disabled]="busy || !auth.canWriteFinance()">
       <label>المبلغ بالجنيه المصري<input class="field" type="number" name="amount" [(ngModel)]="form.amount" min="0.01" max="1000000000" step="0.01" required autofocus /></label>
+      <label>الكاتجوري<input class="field" name="category" [(ngModel)]="form.category" list="expenseCategories" maxlength="80" required placeholder="اختار أو اكتب كاتجوري جديدة"/><datalist id="expenseCategories"><option *ngFor="let category of summary().categories" [value]="category"></option></datalist></label>
       <label>البيان / الوصف<textarea class="field" name="description" [(ngModel)]="form.description" required maxlength="1000" rows="3"></textarea></label>
       <label>التاريخ<input class="field" type="date" name="date" [(ngModel)]="form.date" required /></label>
       <label>إيصال / إثبات دفع (الصورة حتى 20 MB وتُضغط تلقائيًا، PDF حتى 3 MB)<input class="field" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" (change)="chooseReceipt($event)" [disabled]="fileBusy" /></label>

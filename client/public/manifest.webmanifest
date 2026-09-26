@@ -1,0 +1,14 @@
+{
+  "name": "Temsah Group",
+  "short_name": "Temsah",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f6f8",
+  "theme_color": "#18243a",
+  "icons": [
+    { "src": "/temsah-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

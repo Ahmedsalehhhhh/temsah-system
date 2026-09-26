@@ -10,7 +10,8 @@ import { environment } from '../../../environments/environment'
 import { PayrollService } from '../../core/payroll.service'
 import { prepareImage } from '../../core/image-upload'
 interface Company { _id: string; name: string }
-interface Expense { id: string; companyId: string; periodId: string; amount: number; description: string; date: string; receipt: {name:string; mime:string} | null }
+interface Expense { id: string; companyId: string; periodId: string; amount: number; category: string; description: string; date: string; receipt: {name:string; mime:string} | null }
+interface ExpenseSummary { total:number; categories:string[]; byCategory:{category:string;amount:number}[]; byCompany:{companyId:string;company:string;amount:number}[] }
 @Component({
   selector: 'app-expenses', standalone: true, imports: [CommonModule, FormsModule,CompanyAccessComponent],
   templateUrl: './expenses.component.html',
@@ -21,6 +22,8 @@ interface Expense { id: string; companyId: string; periodId: string; amount: num
     .field { display:block; width:100%; background:#FFFFFF; border:1px solid #E5E7EB; border-radius:6px; padding:10px; color:#1A1A1A; margin-top:6px }
     label { display:block; margin-bottom:16px; font-size:14px }
     button:disabled { opacity:.45; cursor:not-allowed }
+    .summary-grid{display:grid;grid-template-columns:minmax(220px,1.35fr) repeat(auto-fit,minmax(145px,1fr));gap:12px;margin:18px 0}.summary-card{background:#fff;border:1px solid #e3e7ee;border-radius:15px;padding:16px;min-width:0}.summary-card.total{background:linear-gradient(135deg,#19263d,#263653);color:#fff}.summary-card small{display:block;color:#778399;margin-bottom:9px}.summary-card.total small{color:#d5dbea}.summary-card strong{font-size:21px;overflow-wrap:anywhere}.summary-card.total strong{font-size:27px;color:#f0c24d}.expense-filter{display:flex;align-items:center;gap:10px;margin:0 0 16px}.expense-filter select{min-width:180px}
+    @media(max-width:640px){:host{margin-top:8px}dialog{width:100vw;max-width:none;height:100dvh;max-height:none;border:0;border-radius:0;padding:18px;padding-top:max(18px,env(safe-area-inset-top));padding-bottom:max(18px,env(safe-area-inset-bottom))}.summary-grid{grid-template-columns:1fr 1fr}.summary-card.total{grid-column:1/-1}.summary-card{padding:14px}.summary-card strong{font-size:18px}.expense-filter{align-items:stretch;flex-direction:column}.expense-filter select{width:100%;min-width:0}}
   `],
 })
 export class ExpensesComponent implements OnDestroy {
@@ -35,18 +38,20 @@ export class ExpensesComponent implements OnDestroy {
   companyId = signal('')
   rows = signal<Expense[]>([])
   total = signal(0)
+  summary = signal<ExpenseSummary>({total:0,categories:[],byCategory:[],byCompany:[]})
+  categoryFilter = signal('')
   loading = signal(false)
   companiesLoading = signal(true)
   error = signal('')
   message = signal('')
-  receipts = signal<Record<string,string>>({})
   company = computed(() => this.companies().find(c => c._id === this.companyId()))
+  visibleRows = computed(() => this.categoryFilter() ? this.rows().filter(row => row.category === this.categoryFilter()) : this.rows())
   busy = false
   fileBusy = false
   formError = ''
   companyError = ''
   companyName = ''
-  form = { amount: null as number | null, description: '', date: '' }
+  form = { amount: null as number | null, category: 'غير مصنف', description: '', date: '' }
   editing: Expense | null = null
   deleting: Expense | null = null
   scope = { companyId: '', periodId: '' }
@@ -67,14 +72,19 @@ export class ExpensesComponent implements OnDestroy {
       const companyId = this.companyId(), periodId = this.payroll.currentPeriodId()
       // Only company and period changes reload the list, not receipt URLs.
       untracked(() => {
+      if (periodId) void this.loadSummary(periodId)
       if (companyId && periodId) void this.loadExpenses(companyId, periodId)
-      else { this.sequence++; this.rows.set([]); this.total.set(0); this.loading.set(false); this.clearReceipts() }
+      else { this.sequence++; this.rows.set([]); this.total.set(0); this.loading.set(false) }
       })
     }, { allowSignalWrites: true })
   }
   money(value:number) { return value.toLocaleString('ar-EG',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' ج.م' }
   private query(scope: {companyId:string;periodId:string}) { return '?companyId='+encodeURIComponent(scope.companyId)+'&periodId='+encodeURIComponent(scope.periodId) }
-  private clearReceipts() { Object.values(this.receipts()).forEach(url => URL.revokeObjectURL(url)); this.receipts.set({}) }
+  async loadSummary(periodId = this.payroll.currentPeriodId() || '') {
+    if(!periodId)return
+    try{this.summary.set(await firstValueFrom(this.http.get<ExpenseSummary>(this.api+'/expenses/summary?periodId='+encodeURIComponent(periodId))))}
+    catch{this.summary.set({total:0,categories:[],byCategory:[],byCompany:[]})}
+  }
   async loadCompanies() {
     this.companiesLoading.set(true)
     try {
@@ -88,27 +98,16 @@ export class ExpensesComponent implements OnDestroy {
   async loadExpenses(companyId = this.companyId(), periodId = this.payroll.currentPeriodId() || '') {
     if (!companyId || !periodId) return
     const sequence = ++this.sequence
-    this.loading.set(true); this.error.set(''); this.rows.set([]); this.total.set(0); this.clearReceipts()
+    this.loading.set(true); this.error.set(''); this.rows.set([]); this.total.set(0)
     try {
       const data = await firstValueFrom(this.http.get<{expenses:Expense[];total:number}>(this.api+'/expenses'+this.query({companyId,periodId})))
       if (sequence !== this.sequence || this.destroyed) return
       this.rows.set(data.expenses); this.total.set(data.total)
-      for (const row of data.expenses.filter(r => r.receipt?.mime.startsWith('image/'))) {
-        void this.loadThumbnail(row, sequence)
-      }
     } catch(e:any) { if (sequence === this.sequence) this.error.set(e.message || 'تعذر تحميل المصروفات') }
     finally { if(sequence === this.sequence) this.loading.set(false) }
   }
   private async receiptBlob(row:Expense) {
     return firstValueFrom(this.http.get(this.api+'/expenses/'+row.id+'/receipt'+this.query(row),{responseType:'blob'}))
-  }
-  private async loadThumbnail(row:Expense, sequence:number) {
-    try {
-      const blob = await this.receiptBlob(row)
-      if (sequence !== this.sequence || this.destroyed) return
-      const url = URL.createObjectURL(blob)
-      this.receipts.update(prev => ({...prev,[row.id]:url}))
-    } catch { /* Full preview displays a retryable error if the thumbnail fails. */ }
   }
   openCompany(company:Company|null=null) { this.editingCompany=company; this.companyName=company?.name||''; this.companyError=''; this.companyDialog.nativeElement.showModal() }
   async saveCompany() {
@@ -129,7 +128,7 @@ export class ExpensesComponent implements OnDestroy {
     try{
       await firstValueFrom(this.http.delete(this.api+'/companies/'+id,{body:{confirm:true}}))
       this.companies.update(list=>list.filter(c=>c._id!==id))
-      if(this.companyId()===id){this.sequence++;this.rows.set([]);this.total.set(0);this.clearReceipts();this.companyId.set(this.companies()[0]?._id||'')}
+      if(this.companyId()===id){this.sequence++;this.rows.set([]);this.total.set(0);this.companyId.set(this.companies()[0]?._id||'')}
       this.error.set('');this.message.set('تم حذف الشركة وجميع مصروفاتها');this.deleteCompanyDialog.nativeElement.close();this.deletingCompany=null
     }catch(e:any){this.companyError=e.error?.message||e.message||'تعذر حذف الشركة'}finally{this.busy=false}
   }
@@ -138,7 +137,7 @@ export class ExpensesComponent implements OnDestroy {
     this.scope={companyId:this.companyId(),periodId:this.payroll.currentPeriodId()!}
     this.editing=row;this.formError='';this.receiptChange=undefined;this.releaseFilePreview()
     const now=new Date();const localDate=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10)
-    this.form=row?{amount:row.amount,description:row.description,date:row.date}:{amount:null,description:'',date:localDate}
+    this.form=row?{amount:row.amount,category:row.category||'غير مصنف',description:row.description,date:row.date}:{amount:null,category:'غير مصنف',description:'',date:localDate}
     this.fileName=row?.receipt?.name||''
     this.expenseDialog.nativeElement.showModal()
   }
@@ -169,7 +168,7 @@ export class ExpensesComponent implements OnDestroy {
       const url=this.api+'/expenses'+(this.editing?'/'+this.editing.id:'')+this.query(this.scope)
       await firstValueFrom(this.editing?this.http.patch(url,body):this.http.post(url,body))
       this.expenseDialog.nativeElement.close();this.releaseFilePreview();this.message.set('تم حفظ المصروف')
-      await this.loadExpenses()
+      await Promise.all([this.loadExpenses(),this.loadSummary()])
     }catch(e:any){this.formError=e.message||'تعذر حفظ المصروف'}finally{this.busy=false}
   }
   askDelete(row:Expense){this.deleting=row;this.formError='';this.deleteDialog.nativeElement.showModal()}
@@ -178,7 +177,7 @@ export class ExpensesComponent implements OnDestroy {
     this.busy=true;this.formError=''
     try{
       await firstValueFrom(this.http.delete(this.api+'/expenses/'+this.deleting.id+this.query(this.deleting)))
-      this.deleteDialog.nativeElement.close();this.message.set('تم حذف المصروف وإيصاله');await this.loadExpenses()
+      this.deleteDialog.nativeElement.close();this.message.set('تم حذف المصروف وإيصاله');await Promise.all([this.loadExpenses(),this.loadSummary()])
     }catch(e:any){this.formError=e.message||'تعذر الحذف'}finally{this.busy=false}
   }
   async previewReceipt(row:Expense){
@@ -192,5 +191,5 @@ export class ExpensesComponent implements OnDestroy {
     }catch(e:any){this.error.set(e.message||'تعذر تحميل الإيصال')}
   }
   closePreview(){if(this.previewUrl)URL.revokeObjectURL(this.previewUrl);this.previewUrl='';this.previewPdf=null;this.receiptDialog?.nativeElement.close()}
-  ngOnDestroy(){this.destroyed=true;this.sequence++;this.clearReceipts();this.releaseFilePreview();this.closePreview()}
+  ngOnDestroy(){this.destroyed=true;this.sequence++;this.releaseFilePreview();this.closePreview()}
 }

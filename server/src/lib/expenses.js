@@ -15,7 +15,9 @@ export function expenseInput(body) {
   if (typeof body.description !== 'string' || !body.description.trim() || body.description.trim().length > 1000) throw bad('البيان مطلوب وبحد أقصى 1000 حرف')
   if (typeof body.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(body.date) ||
       Number.isNaN(Date.parse(body.date)) || new Date(body.date).toISOString().slice(0, 10) !== body.date) throw bad('تاريخ المصروف غير صالح')
-  const result = { amountMinor: Math.round(body.amount * 100), description: body.description.trim(), date: body.date }
+  if (body.category !== undefined && (typeof body.category !== 'string' || body.category.trim().length > 80)) throw bad('تصنيف المصروف غير صالح')
+  const category = typeof body.category === 'string' && body.category.trim() ? body.category.trim().replace(/\s+/g, ' ') : 'غير مصنف'
+  const result = { amountMinor: Math.round(body.amount * 100), category, description: body.description.trim(), date: body.date }
   if (Object.hasOwn(body, 'receipt')) {
     if (body.receipt === null) result.receipt = null
     else {
@@ -36,6 +38,6 @@ export function expenseInput(body) {
 }
 export function expenseView(doc) {
   return { id: String(doc._id), companyId: String(doc.company), periodId: String(doc.period),
-    amount: doc.amountMinor / 100, description: doc.description, date: doc.date,
+    amount: doc.amountMinor / 100, category: doc.category || 'غير مصنف', description: doc.description, date: doc.date,
     receipt: doc.receipt?.mime ? { name: doc.receipt.name, mime: doc.receipt.mime } : null }
 }

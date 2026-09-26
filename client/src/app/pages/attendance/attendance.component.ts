@@ -21,7 +21,7 @@ export class AttendanceComponent implements OnInit,OnDestroy {
  constructor(private route:ActivatedRoute,public auth:AuthService,private http:HttpClient,public payroll:PayrollService){}
  get workPage(){return this.route.snapshot.data['allAttendance'] === true}
  get allAttendance(){return this.route.snapshot.data['allAttendance'] === true && this.auth.canViewAll('attendance-and-work')}
- async ngOnInit(){await this.load();if(this.allAttendance)try{this.employees.set(await firstValueFrom(this.http.get<any[]>(this.api+'/employees')))}catch(e:any){this.error.set(e.error?.message||e.message)};this.poll=setInterval(()=>{if(!this.busy)void this.load(true)},5000);this.clock=setInterval(()=>this.tick.update(x=>x+1),1000)}
+  async ngOnInit(){await this.load();if(this.allAttendance)try{this.employees.set(await firstValueFrom(this.http.get<any[]>(this.api+'/employees')))}catch(e:any){this.error.set(e.error?.message||e.message)};this.poll=setInterval(()=>{if(document.visibilityState==='visible'&&!this.busy&&!this.loading)void this.load(true)},30000);this.clock=setInterval(()=>this.tick.update(x=>x+1),1000)}
  ngOnDestroy(){this.disposed=true;this.sequence++;this.detailSequence++;clearInterval(this.poll);clearInterval(this.clock)}
  now(){this.tick();return this.serverTime+(performance.now()-this.receivedAt)}
  duration(seconds:number){seconds=Math.max(0,Math.floor(seconds||0));return Math.floor(seconds/3600)+'h '+Math.floor(seconds%3600/60)+'m '+seconds%60+'s'}
